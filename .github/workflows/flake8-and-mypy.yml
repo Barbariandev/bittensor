@@ -1,4 +1,4 @@
-name: Flake8 and Mypy - linters check
+name: Mypy check
 permissions:
   contents: read
 
@@ -54,9 +54,6 @@ jobs:
 
       - name: Sync dev deps
         run: uv sync --extra dev --dev
-
-      - name: Flake8
-        run: uv run flake8 bittensor/ --count
 
       - name: Mypy
         run: uv run mypy --ignore-missing-imports bittensor/
