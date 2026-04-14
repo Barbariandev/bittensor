@@ -11,6 +11,7 @@ from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec.base import ScaleType
+from scalecodec.utils.math import FixedPoint
 
 from bittensor.core.axon import Axon
 from bittensor.core.chain_data import (
@@ -145,6 +146,7 @@ from bittensor.core.types import (
     SubtensorMixin,
     UIDs,
     Weights,
+    PositionResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -159,7 +161,6 @@ from bittensor.utils import (
 )
 from bittensor.utils.balance import (
     Balance,
-    FixedPoint,
     check_balance_amount,
     fixed_to_float,
 )
@@ -715,7 +716,7 @@ class Subtensor(SubtensorMixin):
         name: str,
         params: Optional[list] = None,
         block: Optional[int] = None,
-    ) -> Optional[ScaleType]:
+    ) -> ScaleType:
         """Queries any module storage on the Bittensor blockchain with the specified parameters and block number.
         This function is a generic query interface that allows for flexible and diverse data retrieval from various
         blockchain modules. Use this function for nonstandard queries to storage defined within the Bittensor
@@ -769,7 +770,7 @@ class Subtensor(SubtensorMixin):
         name: str,
         params: Optional[list] = None,
         block: Optional[int] = None,
-    ) -> Optional[ScaleType]:
+    ) -> ScaleType[Any]:
         """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -1377,9 +1378,13 @@ class Subtensor(SubtensorMixin):
         ]
         batch_call = self.substrate.query_multi(calls, block_hash=block_hash)
         results = {}
+        key: StorageKey
+        val: dict
         for item in batch_call:
-            value = item[1] or {"data": {"free": 0}}
-            results.update({item[0].params[0]: Balance(value["data"]["free"])})
+            key, val = item
+            value = val or {"data": {"free": 0}}
+            assert key.params is not None
+            results.update({key.params[0]: Balance(value["data"]["free"])})
         return results
 
     def get_current_block(self) -> int:
@@ -1653,8 +1658,7 @@ class Subtensor(SubtensorMixin):
             storage_function="ColdkeySwapAnnouncementDelay",
             block_hash=block_hash,
         )
-        value = getattr(query, "value", query)
-        return cast(int, value) if value is not None else 0
+        return cast(int, query.value) or 0
 
     def get_coldkey_swap_constants(
         self,
@@ -1728,8 +1732,7 @@ class Subtensor(SubtensorMixin):
             storage_function="ColdkeySwapReannouncementDelay",
             block_hash=block_hash,
         )
-        value = getattr(query, "value", query)
-        return cast(int, value) if value is not None else 0
+        return cast(int, query.value) or 0
 
     def get_coldkey_swap_dispute(
         self,
@@ -2414,13 +2417,12 @@ class Subtensor(SubtensorMixin):
         sqrt_price = fixed_to_float(sqrt_price_query[1])
         current_tick = price_to_tick(sqrt_price**2)
 
-        positions_values: list[tuple[dict, int, int]] = []
+        positions_values: list[tuple[PositionResponse, int, int]] = []
         positions_storage_keys: list[StorageKey] = []
-        for _, p in positions_response:
-            position = p.value
-
-            tick_low_idx = position["tick_low"][0]
-            tick_high_idx = position["tick_high"][0]
+        position: PositionResponse
+        for _, position in positions_response:
+            tick_low_idx = position["tick_low"]
+            tick_high_idx = position["tick_high"]
 
             tick_low_sk = self.substrate.create_storage_key(
                 pallet="Swap",
@@ -2499,19 +2501,15 @@ class Subtensor(SubtensorMixin):
 
             positions.append(
                 LiquidityPosition(
-                    **{
-                        "id": position.get("id")[0],
-                        "price_low": Balance.from_tao(
-                            tick_to_price(position.get("tick_low")[0])
-                        ),
-                        "price_high": Balance.from_tao(
-                            tick_to_price(position.get("tick_high")[0])
-                        ),
-                        "liquidity": Balance.from_rao(position.get("liquidity")),
-                        "fees_tao": fees_tao,
-                        "fees_alpha": fees_alpha,
-                        "netuid": position.get("netuid"),
-                    }
+                    id=position.get("id"),
+                    price_low=Balance.from_tao(tick_to_price(position.get("tick_low"))),
+                    price_high=Balance.from_tao(
+                        tick_to_price(position.get("tick_high"))
+                    ),
+                    liquidity=Balance.from_rao(position.get("liquidity")),
+                    fees_tao=fees_tao,
+                    fees_alpha=fees_alpha,
+                    netuid=position.get("netuid"),
                 )
             )
 
@@ -2543,7 +2541,7 @@ class Subtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-        if result is None:
+        if result.value is None:
             return None
         total = sum(result.value)
         return [round(i / total * 100) for i in result.value]
@@ -2578,7 +2576,7 @@ class Subtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-        return query.value if query is not None and hasattr(query, "value") else 1
+        return query.value or 1
 
     def get_metagraph_info(
         self,
@@ -2928,7 +2926,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        return owned_hotkeys
+        return owned_hotkeys.value
 
     def get_parents(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
@@ -3356,8 +3354,7 @@ class Subtensor(SubtensorMixin):
             params=[hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        query_value = getattr(query, "value", query)
-        bits_list = next(iter(cast(list[list[tuple[int, FixedPoint]]], query_value)))
+        bits_list = next(iter(cast(list[list[tuple[int, FixedPoint]]], query.value)))
         return {bits[0]: fixed_to_float(bits[1], frac_bits=32) for bits in bits_list}
 
     def get_root_claimable_stake(
@@ -3667,7 +3664,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        return result or []
+        return result.value or []
 
     def get_start_call_delay(self, block: Optional[int] = None) -> int:
         """
@@ -3953,7 +3950,6 @@ class Subtensor(SubtensorMixin):
             datetime object for the timestamp of the block
         """
         unix = self.query_module("Timestamp", "Now", block=block)
-        assert unix is not None
         return datetime.fromtimestamp(unix.value / 1000, tz=timezone.utc)
 
     def get_total_subnets(self, block: Optional[int] = None) -> Optional[int]:
@@ -4857,7 +4853,7 @@ class Subtensor(SubtensorMixin):
             )
 
         # Expected params from metadata
-        expected_params = func_meta.get_param_info()
+        expected_params = func_meta.get_param_info()  # type: ignore
         provided_params = {}
 
         # Validate and filter parameters
@@ -5004,6 +5000,7 @@ class Subtensor(SubtensorMixin):
             extrinsic_response.extrinsic_receipt = response
 
             if response.is_success:
+                assert response.total_fee_amount is not None
                 extrinsic_response.extrinsic_fee = Balance.from_rao(
                     response.total_fee_amount
                 )

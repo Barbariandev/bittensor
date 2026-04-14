@@ -13,6 +13,7 @@ from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec import GenericCall
 from scalecodec.base import ScaleType
+from scalecodec.utils.math import FixedPoint
 
 from bittensor.core.chain_data import (
     ColdkeySwapAnnouncementInfo,
@@ -160,7 +161,6 @@ from bittensor.utils import (
 )
 from bittensor.utils.balance import (
     Balance,
-    FixedPoint,
     check_balance_amount,
     fixed_to_float,
 )

@@ -5,6 +5,7 @@ from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
+from scalecodec.utils.math import FixedPoint
 
 from bittensor.core import settings
 from bittensor.core.chain_data import NeuronInfo, NeuronInfoLite
@@ -575,3 +576,14 @@ class BlockInfo:
     header: dict
     extrinsics: list
     explorer: str
+
+
+# TypedDicts
+class PositionResponse(TypedDict):
+    id: int
+    netuid: int
+    tick_low: int
+    tick_high: int
+    liquidity: int
+    fees_tao: FixedPoint
+    fees_alpha: FixedPoint
