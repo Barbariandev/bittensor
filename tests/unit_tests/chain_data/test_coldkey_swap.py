@@ -71,11 +71,7 @@ def test_coldkey_swap_dispute_info_from_record(mocker):
     """Test from_record returns ColdkeySwapDisputeInfo from query_map record."""
     decoded_coldkey = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
     disputed_block = 999
-    record = (mocker.Mock(), mocker.Mock(value=disputed_block))
-    mocker.patch(
-        "bittensor.core.chain_data.coldkey_swap.decode_account_id",
-        return_value=decoded_coldkey,
-    )
+    record = (decoded_coldkey, disputed_block)
 
     from_record = ColdkeySwapDisputeInfo.from_record(record)
 

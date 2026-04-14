@@ -912,10 +912,6 @@ def test_query_runtime_api(subtensor, mocker):
         subtensor,
         "determine_block_hash",
     )
-    # mock_runtime_call = mocker.patch.object(
-    #     subtensor.substrate,
-    #     "runtime_call",
-    # )
 
     # Call
     result = subtensor.query_runtime_api(fake_runtime_api, fake_method, None)
@@ -929,7 +925,7 @@ def test_query_runtime_api(subtensor, mocker):
     )
     mock_determine_block_hash.assert_called_once_with(None)
 
-    assert result == subtensor.substrate.runtime_call.return_value.value
+    assert result == subtensor.substrate.runtime_call.return_value
 
 
 def test_query_map_subtensor(subtensor, mocker):
@@ -1372,7 +1368,7 @@ def test_neuron_for_uid_response_none(subtensor, mocker):
         subtensor_module.NeuronInfo, "get_null_neuron"
     )
 
-    subtensor.substrate.runtime_call.return_value.value = None
+    subtensor.substrate.runtime_call.return_value = None
 
     # Call
     result = subtensor.neuron_for_uid(
@@ -1502,10 +1498,7 @@ def test_get_commitment(subtensor, mocker):
     fake_uid = 2
     fake_block = 3
     fake_hotkey = "hotkey"
-    expected_result = (
-        "{'peer_id': '12D3KooWFWnHBmUFxvfL6PfZ5eGHdhgsEqNnsxuN1HE9EtfW8THi', "
-        "'model_huggingface_id': 'kmfoda/gpt2-1b-miner-3'}"
-    )
+    expected_result = "{'peer_id': '12D3KooWRNw54AW4zrQWeZL2buhU8P71gfo9PXQQAHUwEAe4hA34', 'model_huggingface_id': None}"
 
     mocked_metagraph = mocker.MagicMock()
     subtensor.metagraph = mocked_metagraph
@@ -1516,133 +1509,11 @@ def test_get_commitment(subtensor, mocker):
         "deposit": 0,
         "block": 3843930,
         "info": {
-            "fields": (
-                (
-                    {
-                        "Raw117": (
-                            (
-                                123,
-                                39,
-                                112,
-                                101,
-                                101,
-                                114,
-                                95,
-                                105,
-                                100,
-                                39,
-                                58,
-                                32,
-                                39,
-                                49,
-                                50,
-                                68,
-                                51,
-                                75,
-                                111,
-                                111,
-                                87,
-                                70,
-                                87,
-                                110,
-                                72,
-                                66,
-                                109,
-                                85,
-                                70,
-                                120,
-                                118,
-                                102,
-                                76,
-                                54,
-                                80,
-                                102,
-                                90,
-                                53,
-                                101,
-                                71,
-                                72,
-                                100,
-                                104,
-                                103,
-                                115,
-                                69,
-                                113,
-                                78,
-                                110,
-                                115,
-                                120,
-                                117,
-                                78,
-                                49,
-                                72,
-                                69,
-                                57,
-                                69,
-                                116,
-                                102,
-                                87,
-                                56,
-                                84,
-                                72,
-                                105,
-                                39,
-                                44,
-                                32,
-                                39,
-                                109,
-                                111,
-                                100,
-                                101,
-                                108,
-                                95,
-                                104,
-                                117,
-                                103,
-                                103,
-                                105,
-                                110,
-                                103,
-                                102,
-                                97,
-                                99,
-                                101,
-                                95,
-                                105,
-                                100,
-                                39,
-                                58,
-                                32,
-                                39,
-                                107,
-                                109,
-                                102,
-                                111,
-                                100,
-                                97,
-                                47,
-                                103,
-                                112,
-                                116,
-                                50,
-                                45,
-                                49,
-                                98,
-                                45,
-                                109,
-                                105,
-                                110,
-                                101,
-                                114,
-                                45,
-                                51,
-                                39,
-                                125,
-                            ),
-                        )
-                    },
-                ),
-            )
+            "fields": [
+                {
+                    "Raw97": "0x7b27706565725f6964273a2027313244334b6f6f57524e7735344157347a725157655a4c32627568553850373167666f3950585151414855774541653468413334272c20276d6f64656c5f68756767696e67666163655f6964273a204e6f6e657d"
+                }
+            ],
         },
     }
 
@@ -4161,10 +4032,8 @@ def test_all_subnets(subtensor, mocker):
         "get_subnet_prices",
         return_value={0: Balance.from_tao(1), 1: Balance.from_tao(0.029258617)},
     )
-    mocked_decode = mocker.Mock(return_value=[{"netuid": 0}, {"netuid": 1}])
-    mocked_runtime_call = mocker.Mock(decode=mocked_decode)
     mocker.patch.object(
-        subtensor.substrate, "runtime_call", return_value=mocked_runtime_call
+        subtensor.substrate, "runtime_call", return_value=[{"netuid": 0}, {"netuid": 1}]
     )
 
     # Call
@@ -4357,6 +4226,7 @@ def test_get_timelocked_weight_commits(subtensor, mocker):
         storage_function="TimelockedWeightCommits",
         params=[netuid],
         block_hash=mock_determine_block_hash.return_value,
+        page_size=1,
     )
     assert result == []
 

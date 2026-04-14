@@ -1507,9 +1507,8 @@ class Subtensor(SubtensorMixin):
             )
             if children:
                 formatted_children = []
-                for proportion, child in children.value:
+                for proportion, formatted_child in children.value:
                     # Convert U64 to int
-                    formatted_child = decode_account_id(child[0])
                     normalized_proportion = u64_normalized_float(proportion)
                     formatted_children.append((normalized_proportion, formatted_child))
                 return True, formatted_children, ""
@@ -4582,6 +4581,7 @@ class Subtensor(SubtensorMixin):
             See the `Bittensor CLI documentation <https://docs.bittensor.com/reference/btcli>`_ for supported identity
             parameters.
         """
+        print(coldkey_ss58)
         identity_info = self.substrate.query(
             module="SubtensorModule",
             storage_function="IdentitiesV2",
@@ -4593,11 +4593,7 @@ class Subtensor(SubtensorMixin):
             return None
 
         try:
-            identity_data = (
-                identity_info.value
-                if hasattr(identity_info, "value")
-                else identity_info
-            )
+            identity_data = identity_info.value
             return ChainIdentity.from_dict(
                 decode_hex_identity_dict(cast(dict[str, Any], identity_data)),
             )

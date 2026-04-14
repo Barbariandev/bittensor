@@ -102,38 +102,18 @@ class Certificate(str):
         return str.__new__(cls, string)
 
 
-def decode_hex_identity_dict(info_dictionary: dict[str, Any]) -> dict[str, Any]:
+def decode_hex_identity_dict(info_dictionary: dict[str, dict | str]) -> dict[str, Any]:
     """Decodes a dictionary of hexadecimal identities."""
-
-    def get_decoded(data: Optional[str]) -> str:
-        """Decodes a hex-encoded string."""
-        if data is None:
-            return ""
-        try:
-            return hex_to_bytes(data).decode()
-        except (UnicodeDecodeError, ValueError):
-            raise ValueError(f"Could not decode hex-encoded string: {data}")
 
     for key, value in info_dictionary.items():
         if isinstance(value, dict):
             item = list(value.values())[0]
-            if isinstance(item, str) and item.startswith("0x"):
-                info_dictionary[key] = get_decoded(item)
-            else:
-                info_dictionary[key] = item
-        if key == "additional":
-            additional = []
-            for item in value:
-                if isinstance(item, dict):
-                    for k, v in item.items():
-                        additional.append((k, get_decoded(v)))
-                else:
-                    if isinstance(item, (tuple, list)) and len(item) == 2:
-                        k_, v = item
-                        k = k_ if k_ is not None else ""
-                        additional.append((k, get_decoded(v)))
-            info_dictionary[key] = additional
-
+        else:
+            item = value
+        if isinstance(item, str) and item.startswith("0x"):
+            info_dictionary[key] = hex_to_bytes(item.removeprefix("0x")).decode()
+        else:
+            info_dictionary[key] = item
     return info_dictionary
 
 

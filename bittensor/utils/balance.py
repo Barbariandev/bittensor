@@ -1,6 +1,5 @@
 from typing import Optional, TypedDict, Union
 
-from scalecodec import ScaleType
 from scalecodec.utils.math import fixed_to_float as fixed_to_float
 
 from bittensor.core import settings
