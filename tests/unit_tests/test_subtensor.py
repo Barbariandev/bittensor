@@ -4676,16 +4676,13 @@ def test_get_crowdloan_constants(mocker, subtensor):
 def test_get_crowdloan_contributions(mocker, subtensor):
     """Tests subtensor `get_crowdloan_contributions` method."""
     # Preps
-    fake_hk_array = mocker.Mock(spec=list)
-    fake_contribution = mocker.Mock(value=mocker.Mock(spec=Balance))
+    fake_hk = mocker.Mock(spec=str)
+    fake_contribution = mocker.Mock(spec=int)
 
     fake_crowdloan_id = mocker.Mock(spec=int)
     mocked_determine_block_hash = mocker.patch.object(subtensor, "determine_block_hash")
     mocked_query_map = mocker.patch.object(subtensor.substrate, "query_map")
-    mocked_query_map.return_value.records = [(fake_hk_array, fake_contribution)]
-    mocked_decode_account_id = mocker.patch.object(
-        subtensor_module, "decode_account_id"
-    )
+    mocked_query_map.return_value.records = [(fake_hk, fake_contribution)]
     mocked_from_rao = mocker.patch.object(subtensor_module.Balance, "from_rao")
 
     # Call
@@ -4693,9 +4690,7 @@ def test_get_crowdloan_contributions(mocker, subtensor):
 
     # Asserts
     mocked_determine_block_hash.assert_called_once()
-    assert result == {
-        mocked_decode_account_id.return_value: mocked_from_rao.return_value
-    }
+    assert result == {fake_hk: mocked_from_rao.return_value}
 
 
 @pytest.mark.parametrize(
@@ -5797,14 +5792,14 @@ def test_get_stake_info_for_coldkeys_success(subtensor, mocker):
     fake_coldkey_ss58s = ["coldkey1", "coldkey2"]
     fake_block = 123
 
-    fake_ck1 = b"\x16:\xech\r\xde,g\x03R1\xb9\x88q\xe79\xb8\x88\x93\xae\xd2)?*\rp\xb2\xe62\xads\x1c"
-    fake_ck2 = b"\x17:\xech\r\xde,g\x03R1\xb9\x88q\xe79\xb8\x88\x93\xae\xd2)?*\rp\xb2\xe62\xads\x1d"
-    fake_decoded_ck1 = "decoded_coldkey1"
-    fake_decoded_ck2 = "decoded_coldkey2"
+    fake_ck1 = "decoded_coldkey1"
+    fake_ck2 = "decoded_coldkey2"
+    fake_decoded_ck1 = fake_ck1
+    fake_decoded_ck2 = fake_ck2
 
     stake_info_dict_1 = {
         "netuid": 5,
-        "hotkey": b"\x16:\xech\r\xde,g\x03R1\xb9\x88q\xe79\xb8\x88\x93\xae\xd2)?*\rp\xb2\xe62\xads\x1c",
+        "hotkey": "fake_hk",
         "coldkey": fake_ck1,
         "stake": 1000,
         "locked": 0,
@@ -5814,7 +5809,7 @@ def test_get_stake_info_for_coldkeys_success(subtensor, mocker):
     }
     stake_info_dict_2 = {
         "netuid": 14,
-        "hotkey": b"\x17:\xech\r\xde,g\x03R1\xb9\x88q\xe79\xb8\x88\x93\xae\xd2)?*\rp\xb2\xe62\xads\x1d",
+        "hotkey": "fake_hk",
         "coldkey": fake_ck2,
         "stake": 2000,
         "locked": 0,
@@ -5830,12 +5825,6 @@ def test_get_stake_info_for_coldkeys_success(subtensor, mocker):
 
     mocked_query_runtime_api = mocker.patch.object(
         subtensor, "query_runtime_api", return_value=fake_query_result
-    )
-
-    mocked_decode_account_id = mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        side_effect=[fake_decoded_ck1, fake_decoded_ck2],
     )
 
     mock_stake_info_1 = mocker.Mock(spec=StakeInfo)
@@ -5861,9 +5850,6 @@ def test_get_stake_info_for_coldkeys_success(subtensor, mocker):
         method="get_stake_info_for_coldkeys",
         params=[fake_coldkey_ss58s],
         block=fake_block,
-    )
-    mocked_decode_account_id.assert_has_calls(
-        [mocker.call(fake_ck1), mocker.call(fake_ck2)]
     )
     mocked_stake_info_list_from_dicts.assert_has_calls(
         [mocker.call([stake_info_dict_1]), mocker.call([stake_info_dict_2])]
