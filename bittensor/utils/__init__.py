@@ -28,7 +28,6 @@ from .version import check_version, VersionCheckError
 if TYPE_CHECKING:
     from bittensor_wallet import Wallet
     from bittensor.core.types import ExtrinsicResponse
-    from bittensor.utils.balance import Balance
 
 # keep save from import analyzer as obvious aliases
 hex_to_ss58 = ss58_encode
