@@ -6,9 +6,10 @@ from unittest.mock import ANY, MagicMock
 import pytest
 import websockets
 from async_substrate_interface import sync_substrate
-from async_substrate_interface.types import Runtime, ScaleObj
+from async_substrate_interface.types import Runtime
 from bittensor_wallet import Wallet
 from scalecodec import GenericCall
+from scalecodec.base import ScaleType
 
 from bittensor import StakeInfo
 from bittensor.core import settings
@@ -3096,7 +3097,9 @@ def test_get_all_neuron_certificates(mocker, subtensor):
 
 def test_get_timestamp(mocker, subtensor):
     fake_block = 1000
-    mocked_query = mocker.MagicMock(return_value=ScaleObj(1740586018 * 1000))
+    mock_return = mocker.MagicMock(spec=ScaleType)
+    mock_return.value = 1740586018 * 1000
+    mocked_query = mocker.MagicMock(return_value=mock_return)
     mocker.patch.object(subtensor.substrate, "query", mocked_query)
     expected_result = datetime.datetime(
         2025, 2, 26, 16, 6, 58, tzinfo=datetime.timezone.utc

@@ -8,11 +8,11 @@ import asyncstdlib as a
 import scalecodec
 from async_substrate_interface import AsyncSubstrateInterface
 from async_substrate_interface.substrate_addons import RetryAsyncSubstrate
-from async_substrate_interface.types import ScaleObj
 from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec import GenericCall
+from scalecodec.base import ScaleType
 
 from bittensor.core.chain_data import (
     ColdkeySwapAnnouncementInfo,
@@ -43,7 +43,6 @@ from bittensor.core.chain_data import (
 from bittensor.core.chain_data.chain_identity import ChainIdentity
 from bittensor.core.chain_data.delegate_info import DelegatedInfo
 from bittensor.core.chain_data.utils import (
-    decode_block,
     decode_metadata,
     decode_revealed_commitment,
     decode_revealed_commitment_with_hotkey,
@@ -755,7 +754,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional["ScaleObj"]:
+    ) -> Optional[ScaleType[Any]]:
         """Retrieves a constant from the specified module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -859,7 +858,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[Union["ScaleObj", Any]]:
+    ) -> Optional[ScaleType[Any]]:
         """Queries any module storage on the Bittensor blockchain with the specified parameters and block number.
         This function is a generic query interface that allows for flexible and diverse data retrieval from various
         blockchain modules. Use this function for nonstandard queries to storage defined within the Bittensor
@@ -928,7 +927,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[Union["ScaleObj", Any]]:
+    ) -> Optional[ScaleType[Any]]:
         """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to storage defined within the Bittensor blockchain, if these cannot
@@ -1986,7 +1985,7 @@ class AsyncSubtensor(SubtensorMixin):
         if query is None:
             return None
         return ColdkeySwapAnnouncementInfo.from_query(
-            coldkey_ss58=coldkey_ss58, query=cast(ScaleObj, query)
+            coldkey_ss58=coldkey_ss58, query=query
         )
 
     async def get_coldkey_swap_announcements(
@@ -2130,9 +2129,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
         if query is None:
             return None
-        return ColdkeySwapDisputeInfo.from_query(
-            coldkey_ss58=coldkey_ss58, query=cast(ScaleObj, query)
-        )
+        return ColdkeySwapDisputeInfo.from_query(coldkey_ss58=coldkey_ss58, query=query)
 
     async def get_coldkey_swap_disputes(
         self,
@@ -2851,7 +2848,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ):
+    ) -> ScaleType[int]:
         """Retrieves the block number when bonds were last reset for a specific hotkey on a subnet.
 
         Parameters:
@@ -2911,10 +2908,7 @@ class AsyncSubtensor(SubtensorMixin):
         block_data = await self.get_last_bonds_reset(
             netuid, hotkey, block, block_hash, reuse_block
         )
-        try:
-            return decode_block(block_data)
-        except TypeError:
-            return None
+        return getattr(block_data, "value", None)
 
     async def get_liquidity_list(
         self,
@@ -5220,9 +5214,8 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/resources/glossary#fast-blocks>
 
         """
-        slot_duration_obj = cast(
-            ScaleObj, await self.query_constant("Aura", "SlotDuration")
-        )
+        slot_duration_obj = await self.query_constant("Aura", "SlotDuration")
+        assert slot_duration_obj is not None
         return slot_duration_obj.value == 250
 
     async def is_hotkey_delegate(

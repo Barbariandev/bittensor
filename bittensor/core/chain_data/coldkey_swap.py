@@ -1,8 +1,6 @@
 from dataclasses import asdict, dataclass, fields
 from typing import Optional
-
-from async_substrate_interface.types import ScaleObj
-
+from scalecodec.base import ScaleType
 from bittensor.core.chain_data.utils import decode_account_id
 
 
@@ -34,7 +32,7 @@ class ColdkeySwapAnnouncementInfo:
 
     @classmethod
     def from_query(
-        cls, coldkey_ss58: str, query: "ScaleObj"
+        cls, coldkey_ss58: str, query: ScaleType
     ) -> Optional["ColdkeySwapAnnouncementInfo"]:
         """
         Creates a ColdkeySwapAnnouncementInfo object from a Substrate query result.
@@ -98,7 +96,7 @@ class ColdkeySwapDisputeInfo:
 
     @classmethod
     def from_query(
-        cls, coldkey_ss58: str, query: "ScaleObj"
+        cls, coldkey_ss58: str, query: ScaleType
     ) -> Optional["ColdkeySwapDisputeInfo"]:
         """
         Creates a ColdkeySwapDisputeInfo object from a Substrate query result.

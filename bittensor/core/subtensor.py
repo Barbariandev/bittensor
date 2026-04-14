@@ -7,10 +7,10 @@ import scalecodec
 from async_substrate_interface.errors import SubstrateRequestException
 from async_substrate_interface.substrate_addons import RetrySyncSubstrate
 from async_substrate_interface.sync_substrate import SubstrateInterface
-from async_substrate_interface.types import ScaleObj
 from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
+from scalecodec.base import ScaleType
 
 from bittensor.core.axon import Axon
 from bittensor.core.chain_data import (
@@ -42,7 +42,6 @@ from bittensor.core.chain_data import (
 )
 from bittensor.core.chain_data.chain_identity import ChainIdentity
 from bittensor.core.chain_data.utils import (
-    decode_block,
     decode_metadata,
     decode_revealed_commitment,
     decode_revealed_commitment_with_hotkey,
@@ -638,7 +637,7 @@ class Subtensor(SubtensorMixin):
 
     def query_constant(
         self, module_name: str, constant_name: str, block: Optional[int] = None
-    ) -> Optional["ScaleObj"]:
+    ) -> Optional[ScaleType[Any]]:
         """Retrieves a constant from the specified module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -721,7 +720,7 @@ class Subtensor(SubtensorMixin):
         name: str,
         params: Optional[list] = None,
         block: Optional[int] = None,
-    ) -> Optional[Union["ScaleObj", Any, FixedPoint]]:
+    ) -> Optional[ScaleType]:
         """Queries any module storage on the Bittensor blockchain with the specified parameters and block number.
         This function is a generic query interface that allows for flexible and diverse data retrieval from various
         blockchain modules. Use this function for nonstandard queries to storage defined within the Bittensor
@@ -775,7 +774,7 @@ class Subtensor(SubtensorMixin):
         name: str,
         params: Optional[list] = None,
         block: Optional[int] = None,
-    ) -> Optional[Union["ScaleObj", Any]]:
+    ) -> Optional[ScaleType]:
         """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -1604,7 +1603,7 @@ class Subtensor(SubtensorMixin):
         if query is None:
             return None
         return ColdkeySwapAnnouncementInfo.from_query(
-            coldkey_ss58=coldkey_ss58, query=cast(ScaleObj, query)
+            coldkey_ss58=coldkey_ss58, query=cast(ScaleType, query)
         )
 
     def get_coldkey_swap_announcements(
@@ -1771,9 +1770,7 @@ class Subtensor(SubtensorMixin):
         )
         if query is None:
             return None
-        return ColdkeySwapDisputeInfo.from_query(
-            coldkey_ss58=coldkey_ss58, query=cast(ScaleObj, query)
-        )
+        return ColdkeySwapDisputeInfo.from_query(coldkey_ss58=coldkey_ss58, query=query)
 
     def get_coldkey_swap_disputes(
         self,
@@ -2350,10 +2347,7 @@ class Subtensor(SubtensorMixin):
             )
             return None
         block_data = self.get_last_bonds_reset(netuid, hotkey_ss58, block)
-        try:
-            return decode_block(block_data)
-        except TypeError:
-            return None
+        return getattr(block_data, "value", None)
 
     def get_liquidity_list(
         self,
@@ -3588,8 +3582,8 @@ class Subtensor(SubtensorMixin):
         hotkey_alpha_query = self.query_subtensor(
             name="TotalHotkeyAlpha", params=[hotkey_ss58, netuid], block=block
         )
-        hotkey_alpha = cast(ScaleObj, hotkey_alpha_query)
-        balance = Balance.from_rao(hotkey_alpha.value)
+        assert hotkey_alpha_query is not None
+        balance = Balance.from_rao(hotkey_alpha_query.value)
         balance.set_unit(netuid=netuid)
         return balance
 
@@ -3969,8 +3963,9 @@ class Subtensor(SubtensorMixin):
         Returns:
             datetime object for the timestamp of the block
         """
-        unix = cast(ScaleObj, self.query_module("Timestamp", "Now", block=block)).value
-        return datetime.fromtimestamp(unix / 1000, tz=timezone.utc)
+        unix = self.query_module("Timestamp", "Now", block=block)
+        assert unix is not None
+        return datetime.fromtimestamp(unix.value / 1000, tz=timezone.utc)
 
     def get_total_subnets(self, block: Optional[int] = None) -> Optional[int]:
         """Retrieves the total number of subnets within the Bittensor network as of a specific blockchain block.
@@ -4254,7 +4249,8 @@ class Subtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/resources/glossary#fast-blocks>
 
         """
-        slot_duration_obj = cast(ScaleObj, self.query_constant("Aura", "SlotDuration"))
+        slot_duration_obj = self.query_constant("Aura", "SlotDuration")
+        assert slot_duration_obj is not None
         return slot_duration_obj.value == 250
 
     def is_hotkey_delegate(self, hotkey_ss58: str, block: Optional[int] = None) -> bool:

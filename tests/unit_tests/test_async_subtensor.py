@@ -2,9 +2,10 @@ import datetime
 import unittest.mock as mock
 
 import pytest
-from async_substrate_interface.types import Runtime, ScaleObj
+from async_substrate_interface.types import Runtime
 from bittensor_wallet import Wallet
 from scalecodec import GenericCall
+from scalecodec.base import ScaleType
 
 from bittensor import u64_normalized_float
 from bittensor.core import async_subtensor, settings
@@ -2829,7 +2830,9 @@ async def test_get_all_neuron_certificates(mocker, subtensor):
 @pytest.mark.asyncio
 async def test_get_timestamp(mocker, subtensor):
     fake_block = 1000
-    mocked_query = mocker.AsyncMock(return_value=ScaleObj(1740586018 * 1000))
+    mock_return = mocker.MagicMock(spec=ScaleType)
+    mock_return.value = 1740586018 * 1000
+    mocked_query = mocker.AsyncMock(return_value=mock_return)
     mocker.patch.object(subtensor.substrate, "query", mocked_query)
     expected_result = datetime.datetime(
         2025, 2, 26, 16, 6, 58, tzinfo=datetime.timezone.utc
