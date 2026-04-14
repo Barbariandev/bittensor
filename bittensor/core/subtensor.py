@@ -38,7 +38,6 @@ from bittensor.core.chain_data import (
     SubnetIdentity,
     SubnetInfo,
     WeightCommitInfo,
-    decode_account_id,
 )
 from bittensor.core.chain_data.chain_identity import ChainIdentity
 from bittensor.core.chain_data.utils import (
@@ -1325,8 +1324,7 @@ class Subtensor(SubtensorMixin):
         )
 
         pairs = {}
-        for netuid, destination in query:
-            hotkey_ss58 = decode_account_id(destination.value[0])
+        for netuid, hotkey_ss58 in query:
             if hotkey_ss58:
                 pairs[int(netuid)] = hotkey_ss58
 
@@ -1560,7 +1558,7 @@ class Subtensor(SubtensorMixin):
             [
                 (
                     u64_normalized_float(proportion),
-                    decode_account_id(child[0]),
+                    child,
                 )
                 for proportion, child in children
             ],
@@ -1941,9 +1939,9 @@ class Subtensor(SubtensorMixin):
             block_hash=block_hash,
         )
         result = {}
-        for record in query.records:
-            if record[1].value:
-                result[decode_account_id(record[0])] = Balance.from_rao(record[1].value)
+        for contributor, amount in query.records:
+            if amount:
+                result[contributor] = Balance.from_rao(amount)
         return result
 
     def get_crowdloan_by_id(
@@ -2106,8 +2104,8 @@ class Subtensor(SubtensorMixin):
         )
 
         return {
-            decode_account_id(ss58_address[0]): ChainIdentity.from_dict(
-                decode_hex_identity_dict(identity.value),
+            ss58_address: ChainIdentity.from_dict(
+                decode_hex_identity_dict(identity),
             )
             for ss58_address, identity in identities
         }
@@ -2934,7 +2932,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        return [decode_account_id(hotkey[0]) for hotkey in owned_hotkeys or []]
+        return owned_hotkeys
 
     def get_parents(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
@@ -2963,9 +2961,8 @@ class Subtensor(SubtensorMixin):
         )
         if parents:
             formatted_parents = []
-            for proportion, parent in parents.value:
+            for proportion, formatted_child in parents.value:
                 # Convert U64 to int
-                formatted_child = decode_account_id(parent[0])
                 normalized_proportion = u64_normalized_float(proportion)
                 formatted_parents.append((normalized_proportion, formatted_child))
             return formatted_parents
@@ -3561,10 +3558,7 @@ class Subtensor(SubtensorMixin):
         if query is None:
             return {}
 
-        return {
-            decode_account_id(ck): StakeInfo.list_from_dicts(st_info)
-            for ck, st_info in query
-        }
+        return {ck: StakeInfo.list_from_dicts(st_info) for ck, st_info in query}
 
     def get_stake_for_hotkey(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
@@ -3677,7 +3671,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        return [decode_account_id(hotkey[0]) for hotkey in result or []]
+        return result or []
 
     def get_start_call_delay(self, block: Optional[int] = None) -> int:
         """

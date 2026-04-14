@@ -15,7 +15,6 @@ from bittensor.core.chain_data import (
     NeuronInfo,
     SelectiveMetagraphIndex,
     StakeInfo,
-    proposal_vote_data,
 )
 from bittensor.core.errors import BalanceTypeError
 from bittensor.core.settings import DEFAULT_MEV_PROTECTION, DEFAULT_PERIOD
@@ -38,35 +37,6 @@ def mock_substrate(mocker):
 @pytest.fixture
 def subtensor(mock_substrate):
     return async_subtensor.AsyncSubtensor()
-
-
-def test_decode_ss58_tuples_in_proposal_vote_data(mocker):
-    """Tests that ProposalVoteData instance instantiation works properly,"""
-    # Preps
-    mocked_decode_account_id = mocker.patch.object(
-        proposal_vote_data, "decode_account_id"
-    )
-    fake_proposal_dict = {
-        "index": "0",
-        "threshold": 1,
-        "ayes": ("0 line", "1 line"),
-        "nays": ("2 line", "3 line"),
-        "end": 123,
-    }
-
-    # Call
-    async_subtensor.ProposalVoteData.from_dict(fake_proposal_dict)
-
-    # Asserts
-    assert mocked_decode_account_id.call_count == len(fake_proposal_dict["ayes"]) + len(
-        fake_proposal_dict["nays"]
-    )
-    assert mocked_decode_account_id.mock_calls == [
-        mocker.call("0 line"),
-        mocker.call("1 line"),
-        mocker.call("2 line"),
-        mocker.call("3 line"),
-    ]
 
 
 def test_decode_hex_identity_dict_with_non_tuple_value():

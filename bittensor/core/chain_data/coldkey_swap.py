@@ -1,7 +1,6 @@
 from dataclasses import asdict, dataclass, fields
 from typing import Optional
 from scalecodec.base import ScaleType
-from bittensor.core.chain_data.utils import decode_account_id
 
 
 @dataclass
@@ -67,7 +66,7 @@ class ColdkeySwapAnnouncementInfo:
         Returns:
             ColdkeySwapAnnouncementInfo object with announcement details for the coldkey from the record.
         """
-        coldkey_ss58 = decode_account_id(record[0])
+        coldkey_ss58 = record[0]
         announcement_data = record[1]
         return cls.from_query(coldkey_ss58, announcement_data)
 

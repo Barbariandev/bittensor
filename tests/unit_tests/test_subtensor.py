@@ -2009,11 +2009,6 @@ def test_does_hotkey_exist_true(mocker, subtensor):
         "query",
         return_value=mocker.Mock(value=[fake_owner]),
     )
-    mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        return_value=fake_owner,
-    )
 
     # Call
     result = subtensor.does_hotkey_exist(fake_hotkey_ss58, block=fake_block)
@@ -2067,12 +2062,6 @@ def test_does_hotkey_exist_special_id(mocker, subtensor):
         "query",
         return_value=fake_owner,
     )
-    mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        return_value=fake_owner,
-    )
-
     # Call
     result = subtensor.does_hotkey_exist(fake_hotkey_ss58, block=fake_block)
 
@@ -2098,11 +2087,6 @@ def test_does_hotkey_exist_latest_block(mocker, subtensor):
         subtensor.substrate,
         "query",
         return_value=mocker.Mock(value=[fake_owner]),
-    )
-    mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        return_value=fake_owner,
     )
 
     # Call
@@ -2193,11 +2177,6 @@ def test_get_hotkey_owner_does_not_exist(mocker, subtensor):
     )
     mock_does_hotkey_exist = mocker.patch.object(
         subtensor, "does_hotkey_exist", return_value=False
-    )
-    mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        return_value=fake_hotkey_ss58,
     )
 
     # Call
@@ -2980,17 +2959,10 @@ def test_get_owned_hotkeys_happy_path(subtensor, mocker):
     fake_coldkey = "fake_hotkey"
     fake_hotkey = "fake_hotkey"
     fake_hotkeys = [
-        [
-            fake_hotkey,
-        ]
+        fake_hotkey,
     ]
     mocked_subtensor = mocker.Mock(return_value=fake_hotkeys)
     mocker.patch.object(subtensor.substrate, "query", new=mocked_subtensor)
-
-    mocked_decode_account_id = mocker.Mock()
-    mocker.patch.object(
-        subtensor_module, "decode_account_id", new=mocked_decode_account_id
-    )
 
     # Call
     result = subtensor.get_owned_hotkeys(fake_coldkey)
@@ -3002,8 +2974,7 @@ def test_get_owned_hotkeys_happy_path(subtensor, mocker):
         params=[fake_coldkey],
         block_hash=None,
     )
-    assert result == [mocked_decode_account_id.return_value]
-    mocked_decode_account_id.assert_called_once_with(fake_hotkey)
+    assert result == fake_hotkeys
 
 
 def test_get_owned_hotkeys_return_empty(subtensor, mocker):
@@ -3586,18 +3557,13 @@ def test_get_parents_success(subtensor, mocker):
     fake_netuid = 1
     fake_parents = mocker.Mock(
         value=[
-            (1000, ["parent_key_1"]),
-            (2000, ["parent_key_2"]),
+            (1000, "decoded_parent_key_1"),
+            (2000, "decoded_parent_key_2"),
         ]
     )
 
     mocked_query = mocker.MagicMock(return_value=fake_parents)
     subtensor.substrate.query = mocked_query
-
-    mocked_decode_account_id = mocker.Mock(
-        side_effect=["decoded_parent_key_1", "decoded_parent_key_2"]
-    )
-    mocker.patch.object(subtensor_module, "decode_account_id", mocked_decode_account_id)
 
     expected_formatted_parents = [
         (u64_normalized_float(1000), "decoded_parent_key_1"),
@@ -3613,9 +3579,6 @@ def test_get_parents_success(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ParentKeys",
         params=[fake_hotkey, fake_netuid],
-    )
-    mocked_decode_account_id.assert_has_calls(
-        [mocker.call("parent_key_1"), mocker.call("parent_key_2")]
     )
     assert result == expected_formatted_parents
 
@@ -4358,19 +4321,10 @@ def test_get_auto_stakes(subtensor, mocker):
     fake_hk_1 = mocker.Mock()
     fake_hk_2 = mocker.Mock()
 
-    dest_value_1 = mocker.Mock(value=[fake_hk_1])
-    dest_value_2 = mocker.Mock(value=[fake_hk_2])
-
     mock_result = mocker.MagicMock()
-    mock_result.__iter__.return_value = iter([(0, dest_value_1), (1, dest_value_2)])
+    mock_result.__iter__.return_value = iter([(0, fake_hk_1), (1, fake_hk_2)])
     mocked_query_map = mocker.patch.object(
         subtensor.substrate, "query_map", return_value=mock_result
-    )
-
-    mocked_decode_account_id = mocker.patch.object(
-        subtensor_module,
-        "decode_account_id",
-        side_effect=[fake_hk_1, fake_hk_2],
     )
 
     # Call
@@ -4383,9 +4337,6 @@ def test_get_auto_stakes(subtensor, mocker):
         storage_function="AutoStakeDestination",
         params=[fake_coldkey],
         block_hash=mock_determine_block_hash.return_value,
-    )
-    mocked_decode_account_id.assert_has_calls(
-        [mocker.call(dest_value_1.value[0]), mocker.call(dest_value_2.value[0])]
     )
     assert result == {0: fake_hk_1, 1: fake_hk_2}
 

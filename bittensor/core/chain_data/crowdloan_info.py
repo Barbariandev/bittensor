@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from bittensor.core.chain_data.utils import decode_account_id
 from bittensor.utils.balance import Balance
 
 
@@ -47,18 +46,14 @@ class CrowdloanInfo:
         """Returns a CrowdloanInfo object from decoded chain data."""
         return cls(
             id=idx,
-            creator=decode_account_id(data["creator"]),
+            creator=data["creator"],
             deposit=Balance.from_rao(data["deposit"]),
             min_contribution=Balance.from_rao(data["min_contribution"]),
             end=data["end"],
             cap=Balance.from_rao(data["cap"]),
-            funds_account=decode_account_id(data["funds_account"])
-            if data.get("funds_account")
-            else None,
+            funds_account=data["funds_account"],
             raised=Balance.from_rao(data["raised"]),
-            target_address=decode_account_id(data.get("target_address"))
-            if data.get("target_address")
-            else None,
+            target_address=data.get("target_address"),
             call=data.get("call") if data.get("call") else None,
             finalized=data["finalized"],
             contributors_count=data["contributors_count"],

@@ -3,11 +3,9 @@
 from enum import Enum
 from typing import Optional, Union, TYPE_CHECKING
 
-from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec import ScaleBytes
 from scalecodec.base import RuntimeConfiguration
 from scalecodec.type_registry import load_type_registry_preset
-from scalecodec.utils.ss58 import ss58_encode
 
 from bittensor.utils.balance import Balance
 
@@ -101,23 +99,6 @@ def from_scale_encoding_using_type_string(
     return obj.decode()
 
 
-def decode_account_id(account_id_bytes: Union[bytes, str]) -> str:
-    """
-    Decodes an AccountId from bytes to a Base64 string using SS58 encoding.
-
-    Parameters:
-        account_id_bytes: The AccountId in bytes that needs to be decoded.
-
-    Returns:
-        str: The decoded AccountId as a Base64 string.
-    """
-    if isinstance(account_id_bytes, tuple) and isinstance(account_id_bytes[0], tuple):
-        account_id_bytes = account_id_bytes[0]
-
-    # Convert the AccountId bytes to a Base64 string
-    return ss58_encode(bytes(account_id_bytes).hex(), SS58_FORMAT)
-
-
 def process_stake_data(stake_data: list) -> dict:
     """
     Processes stake data to decode account IDs and convert stakes from rao to Balance objects.
@@ -129,8 +110,7 @@ def process_stake_data(stake_data: list) -> dict:
         dict: A dictionary with account IDs as keys and their corresponding Balance objects as values.
     """
     decoded_stake_data = {}
-    for account_id_bytes, stake_ in stake_data:
-        account_id = decode_account_id(account_id_bytes)
+    for account_id, stake_ in stake_data:
         decoded_stake_data.update({account_id: Balance.from_rao(stake_)})
     return decoded_stake_data
 
