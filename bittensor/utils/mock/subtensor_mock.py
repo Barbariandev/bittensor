@@ -95,9 +95,7 @@ class MockMapResult:
 
     def __init__(
         self,
-        records: Optional[
-            list[tuple[Union[Any, MockSubtensorValue], Union[Any, MockSubtensorValue]]]
-        ] = None,
+        records: Optional[list[tuple[Union[Any, MockSubtensorValue], Union[Any, MockSubtensorValue]]]] = None,
     ):
         _records = [
             (
@@ -108,10 +106,7 @@ class MockMapResult:
                 # Make sure record is a tuple of MockSubtensorValue (dict with value attr)
                 if not (
                     isinstance(record, tuple)
-                    and all(
-                        isinstance(item, dict) and hasattr(item, "value")
-                        for item in record
-                    )
+                    and all(isinstance(item, dict) and hasattr(item, "value") for item in record)
                 )
                 else record
             )
@@ -132,12 +127,8 @@ class MockSubtensorState(TypedDict):
     Rho: dict[int, dict[BlockNumber, int]]  # netuid -> block -> rho
     Kappa: dict[int, dict[BlockNumber, int]]  # netuid -> block -> kappa
     Difficulty: dict[int, dict[BlockNumber, int]]  # netuid -> block -> difficulty
-    ImmunityPeriod: dict[
-        int, dict[BlockNumber, int]
-    ]  # netuid -> block -> immunity_period
-    ValidatorBatchSize: dict[
-        int, dict[BlockNumber, int]
-    ]  # netuid -> block -> validator_batch_size
+    ImmunityPeriod: dict[int, dict[BlockNumber, int]]  # netuid -> block -> immunity_period
+    ValidatorBatchSize: dict[int, dict[BlockNumber, int]]  # netuid -> block -> validator_batch_size
     Active: dict[int, dict[BlockNumber, bool]]  # (netuid, uid), block -> active
     Stake: dict[str, dict[str, dict[int, int]]]  # (hotkey, coldkey) -> block -> stake
 
@@ -364,31 +355,24 @@ class MockSubtensor(Subtensor):
         if netuid not in subtensor_state["NetworksAdded"]:
             raise Exception("Subnet does not exist")
 
-        subnetwork_n = self._get_most_recent_storage(
-            subtensor_state["SubnetworkN"][netuid]
-        )
+        subnetwork_n = self._get_most_recent_storage(subtensor_state["SubnetworkN"][netuid])
 
         if subnetwork_n > 0 and any(
-            self._get_most_recent_storage(subtensor_state["Keys"][netuid][uid])
-            == hotkey_ss58
+            self._get_most_recent_storage(subtensor_state["Keys"][netuid][uid]) == hotkey_ss58
             for uid in range(subnetwork_n)
         ):
             # already_registered
             raise Exception("Hotkey already registered")
         else:
             # Not found
-            if subnetwork_n >= self._get_most_recent_storage(
-                subtensor_state["MaxAllowedUids"][netuid]
-            ):
+            if subnetwork_n >= self._get_most_recent_storage(subtensor_state["MaxAllowedUids"][netuid]):
                 # Subnet full, replace neuron randomly
                 uid = randint(0, subnetwork_n - 1)
             else:
                 # Subnet not full, add new neuron
                 # Append as next uid and increment subnetwork_n
                 uid = subnetwork_n
-                subtensor_state["SubnetworkN"][netuid][self.block_number] = (
-                    subnetwork_n + 1
-                )
+                subtensor_state["SubnetworkN"][netuid][self.block_number] = subnetwork_n + 1
 
             subtensor_state["Stake"][hotkey_ss58] = {}
             subtensor_state["Stake"][hotkey_ss58][coldkey] = {}
@@ -407,9 +391,7 @@ class MockSubtensor(Subtensor):
             subtensor_state["Active"][netuid][uid][self.block_number] = True
 
             subtensor_state["LastUpdate"][netuid][uid] = {}
-            subtensor_state["LastUpdate"][netuid][uid][self.block_number] = (
-                self.block_number
-            )
+            subtensor_state["LastUpdate"][netuid][uid][self.block_number] = self.block_number
 
             subtensor_state["Rank"][netuid][uid] = {}
             subtensor_state["Rank"][netuid][uid][self.block_number] = 0.0
@@ -453,9 +435,7 @@ class MockSubtensor(Subtensor):
             if hotkey_ss58 not in subtensor_state["IsNetworkMember"]:
                 subtensor_state["IsNetworkMember"][hotkey_ss58] = {}
             subtensor_state["IsNetworkMember"][hotkey_ss58][netuid] = {}
-            subtensor_state["IsNetworkMember"][hotkey_ss58][netuid][
-                self.block_number
-            ] = True
+            subtensor_state["IsNetworkMember"][hotkey_ss58][netuid][self.block_number] = True
 
             return uid
 
@@ -487,16 +467,12 @@ class MockSubtensor(Subtensor):
         if netuid not in subtensor_state["NetworksAdded"]:
             raise Exception("Subnet does not exist")
 
-        uid = self._register_neuron(
-            netuid=netuid, hotkey_ss58=hotkey_ss58, coldkey=coldkey_ss58
-        )
+        uid = self._register_neuron(netuid=netuid, hotkey_ss58=hotkey_ss58, coldkey=coldkey_ss58)
 
         subtensor_state["TotalStake"][self.block_number] = (
             self._get_most_recent_storage(subtensor_state["TotalStake"]) + stake.rao
         )
-        subtensor_state["Stake"][hotkey_ss58][coldkey_ss58][self.block_number] = (
-            stake.rao
-        )
+        subtensor_state["Stake"][hotkey_ss58][coldkey_ss58][self.block_number] = stake.rao
 
         if balance.rao > 0:
             self.force_set_balance(coldkey_ss58, balance)
@@ -514,24 +490,17 @@ class MockSubtensor(Subtensor):
         balance = self._convert_to_balance(balance)
 
         if ss58_address not in self.chain_state["System"]["Account"]:
-            self.chain_state["System"]["Account"][ss58_address] = {
-                "data": {"free": {0: 0}}
-            }
+            self.chain_state["System"]["Account"][ss58_address] = {"data": {"free": {0: 0}}}
 
         old_balance = self.get_balance(ss58_address, self.block_number)
         diff = balance.rao - old_balance.rao
 
         # Update total issuance
         self.chain_state["SubtensorModule"]["TotalIssuance"][self.block_number] = (
-            self._get_most_recent_storage(
-                self.chain_state["SubtensorModule"]["TotalIssuance"]
-            )
-            + diff
+            self._get_most_recent_storage(self.chain_state["SubtensorModule"]["TotalIssuance"]) + diff
         )
 
-        self.chain_state["System"]["Account"][ss58_address] = {
-            "data": {"free": {self.block_number: balance.rao}}
-        }
+        self.chain_state["System"]["Account"][ss58_address] = {"data": {"free": {self.block_number: balance.rao}}}
 
         return True, None
 
@@ -545,10 +514,7 @@ class MockSubtensor(Subtensor):
         subtensor_state = self.chain_state["SubtensorModule"]
         for subnet in subtensor_state["NetworksAdded"]:
             subtensor_state["BlocksSinceLastStep"][subnet][self.block_number] = (
-                self._get_most_recent_storage(
-                    subtensor_state["BlocksSinceLastStep"][subnet]
-                )
-                + 1
+                self._get_most_recent_storage(subtensor_state["BlocksSinceLastStep"][subnet]) + 1
             )
 
     def _handle_type_default(self, name: str, params: list[object]) -> object:
@@ -601,9 +567,7 @@ class MockSubtensor(Subtensor):
                 while state is not None and len(params) > 0:
                     state = state.get(params.pop(0), None)
                     if state is None:
-                        return SimpleNamespace(
-                            value=self._handle_type_default(name, params)
-                        )
+                        return SimpleNamespace(value=self._handle_type_default(name, params))
 
             # Use block
             state_at_block = state.get(block, None)
@@ -671,9 +635,7 @@ class MockSubtensor(Subtensor):
         else:
             return MockMapResult([])
 
-    def query_constant(
-        self, module_name: str, constant_name: str, block: Optional[int] = None
-    ) -> Optional[object]:
+    def query_constant(self, module_name: str, constant_name: str, block: Optional[int] = None) -> Optional[object]:
         if block is not None:
             if self.block_number < block:
                 raise Exception("Cannot query block in the future")
@@ -719,9 +681,7 @@ class MockSubtensor(Subtensor):
 
             # Use block
             balance_state = state["data"]["free"]
-            state_at_block = self._get_most_recent_storage(
-                balance_state, block
-            )  # Can be None
+            state_at_block = self._get_most_recent_storage(balance_state, block)  # Can be None
             if state_at_block is not None:
                 bal_as_int = state_at_block
                 return Balance.from_rao(bal_as_int)
@@ -732,9 +692,7 @@ class MockSubtensor(Subtensor):
 
     # ==== Neuron RPC methods ====
 
-    def neuron_for_uid(
-        self, uid: int, netuid: int, block: Optional[int] = None
-    ) -> Optional[NeuronInfo]:
+    def neuron_for_uid(self, uid: int, netuid: int, block: Optional[int] = None) -> Optional[NeuronInfo]:
         if uid is None:
             return NeuronInfo.get_null_neuron()
 
@@ -760,9 +718,7 @@ class MockSubtensor(Subtensor):
             raise Exception("Subnet does not exist")
 
         neurons = []
-        subnet_n = self._get_most_recent_storage(
-            self.chain_state["SubtensorModule"]["SubnetworkN"][netuid], block
-        )
+        subnet_n = self._get_most_recent_storage(self.chain_state["SubtensorModule"]["SubnetworkN"][netuid], block)
         for uid in range(subnet_n):
             neuron_info = self.neuron_for_uid(uid, netuid, block)
             if neuron_info is not None:
@@ -771,9 +727,7 @@ class MockSubtensor(Subtensor):
         return neurons
 
     @staticmethod
-    def _get_most_recent_storage(
-        storage: dict[BlockNumber, Any], block_number: Optional[int] = None
-    ) -> Any:
+    def _get_most_recent_storage(storage: dict[BlockNumber, Any], block_number: Optional[int] = None) -> Any:
         if block_number is None:
             items = list(storage.items())
             items.sort(key=lambda x: x[0], reverse=True)
@@ -791,9 +745,7 @@ class MockSubtensor(Subtensor):
 
             return None
 
-    def _get_axon_info(
-        self, netuid: int, hotkey_ss58: str, block: Optional[int] = None
-    ) -> AxonInfoDict:
+    def _get_axon_info(self, netuid: int, hotkey_ss58: str, block: Optional[int] = None) -> AxonInfoDict:
         # Axons [netuid][hotkey][block_number]
         subtensor_state = self.chain_state["SubtensorModule"]
         if netuid not in subtensor_state["Axons"]:
@@ -802,17 +754,13 @@ class MockSubtensor(Subtensor):
         if hotkey_ss58 not in subtensor_state["Axons"][netuid]:
             return AxonInfoDict.default()
 
-        result = self._get_most_recent_storage(
-            subtensor_state["Axons"][netuid][hotkey_ss58], block
-        )
+        result = self._get_most_recent_storage(subtensor_state["Axons"][netuid][hotkey_ss58], block)
         if not result:
             return AxonInfoDict.default()
 
         return result
 
-    def _get_prometheus_info(
-        self, netuid: int, hotkey_ss58: str, block: Optional[int] = None
-    ) -> PrometheusInfoDict:
+    def _get_prometheus_info(self, netuid: int, hotkey_ss58: str, block: Optional[int] = None) -> PrometheusInfoDict:
         subtensor_state = self.chain_state["SubtensorModule"]
         if netuid not in subtensor_state["Prometheus"]:
             return PrometheusInfoDict.default()
@@ -820,17 +768,13 @@ class MockSubtensor(Subtensor):
         if hotkey_ss58 not in subtensor_state["Prometheus"][netuid]:
             return PrometheusInfoDict.default()
 
-        result = self._get_most_recent_storage(
-            subtensor_state["Prometheus"][netuid][hotkey_ss58], block
-        )
+        result = self._get_most_recent_storage(subtensor_state["Prometheus"][netuid][hotkey_ss58], block)
         if not result:
             return PrometheusInfoDict.default()
 
         return result
 
-    def _neuron_subnet_exists(
-        self, uid: int, netuid: int, block: Optional[int] = None
-    ) -> Optional[NeuronInfo]:
+    def _neuron_subnet_exists(self, uid: int, netuid: int, block: Optional[int] = None) -> Optional[NeuronInfo]:
         subtensor_state = self.chain_state["SubtensorModule"]
         if netuid not in subtensor_state["NetworksAdded"]:
             return None
@@ -847,53 +791,22 @@ class MockSubtensor(Subtensor):
         prometheus_info = self._get_prometheus_info(netuid, hotkey, block)
 
         coldkey = self._get_most_recent_storage(subtensor_state["Owner"][hotkey], block)
-        active = self._get_most_recent_storage(
-            subtensor_state["Active"][netuid][uid], block
-        )
-        rank = self._get_most_recent_storage(
-            subtensor_state["Rank"][netuid][uid], block
-        )
-        emission = self._get_most_recent_storage(
-            subtensor_state["Emission"][netuid][uid], block
-        )
-        incentive = self._get_most_recent_storage(
-            subtensor_state["Incentive"][netuid][uid], block
-        )
-        consensus = self._get_most_recent_storage(
-            subtensor_state["Consensus"][netuid][uid], block
-        )
-        trust = self._get_most_recent_storage(
-            subtensor_state["Trust"][netuid][uid], block
-        )
-        validator_trust = self._get_most_recent_storage(
-            subtensor_state["ValidatorTrust"][netuid][uid], block
-        )
-        dividends = self._get_most_recent_storage(
-            subtensor_state["Dividends"][netuid][uid], block
-        )
-        pruning_score = self._get_most_recent_storage(  # noqa
-            subtensor_state["PruningScores"][netuid][uid], block
-        )
-        last_update = self._get_most_recent_storage(
-            subtensor_state["LastUpdate"][netuid][uid], block
-        )
-        validator_permit = self._get_most_recent_storage(
-            subtensor_state["ValidatorPermit"][netuid][uid], block
-        )
+        active = self._get_most_recent_storage(subtensor_state["Active"][netuid][uid], block)
+        rank = self._get_most_recent_storage(subtensor_state["Rank"][netuid][uid], block)
+        emission = self._get_most_recent_storage(subtensor_state["Emission"][netuid][uid], block)
+        incentive = self._get_most_recent_storage(subtensor_state["Incentive"][netuid][uid], block)
+        consensus = self._get_most_recent_storage(subtensor_state["Consensus"][netuid][uid], block)
+        trust = self._get_most_recent_storage(subtensor_state["Trust"][netuid][uid], block)
+        validator_trust = self._get_most_recent_storage(subtensor_state["ValidatorTrust"][netuid][uid], block)
+        dividends = self._get_most_recent_storage(subtensor_state["Dividends"][netuid][uid], block)
+        last_update = self._get_most_recent_storage(subtensor_state["LastUpdate"][netuid][uid], block)
+        validator_permit = self._get_most_recent_storage(subtensor_state["ValidatorPermit"][netuid][uid], block)
 
-        weights = self._get_most_recent_storage(
-            subtensor_state["Weights"][netuid][uid], block
-        )
-        bonds = self._get_most_recent_storage(
-            subtensor_state["Bonds"][netuid][uid], block
-        )
+        weights = self._get_most_recent_storage(subtensor_state["Weights"][netuid][uid], block)
+        bonds = self._get_most_recent_storage(subtensor_state["Bonds"][netuid][uid], block)
 
         stake_dict = {
-            coldkey: Balance.from_rao(
-                self._get_most_recent_storage(
-                    subtensor_state["Stake"][hotkey][coldkey], block
-                )
-            )
+            coldkey: Balance.from_rao(self._get_most_recent_storage(subtensor_state["Stake"][hotkey][coldkey], block))
             for coldkey in subtensor_state["Stake"][hotkey]
         }
 
@@ -909,9 +822,7 @@ class MockSubtensor(Subtensor):
         validator_trust = u16_normalized_float(validator_trust)
         dividends = u16_normalized_float(dividends)
         prometheus_info = PrometheusInfo.from_dict(prometheus_info)
-        axon_info_ = AxonInfo.from_neuron_info(
-            {"hotkey": hotkey, "coldkey": coldkey, "axon_info": axon_info_}
-        )
+        axon_info_ = AxonInfo.from_neuron_info({"hotkey": hotkey, "coldkey": coldkey, "axon_info": axon_info_})
 
         neuron_info = NeuronInfo(
             hotkey=hotkey,
@@ -938,16 +849,12 @@ class MockSubtensor(Subtensor):
 
         return neuron_info
 
-    def neurons_lite(
-        self, netuid: int, block: Optional[int] = None
-    ) -> list[NeuronInfoLite]:
+    def neurons_lite(self, netuid: int, block: Optional[int] = None) -> list[NeuronInfoLite]:
         if netuid not in self.chain_state["SubtensorModule"]["NetworksAdded"]:
             raise Exception("Subnet does not exist")
 
         neurons = []
-        subnet_n = self._get_most_recent_storage(
-            self.chain_state["SubtensorModule"]["SubnetworkN"][netuid]
-        )
+        subnet_n = self._get_most_recent_storage(self.chain_state["SubtensorModule"]["SubnetworkN"][netuid])
         for uid in range(subnet_n):
             neuron_info = self.neuron_for_uid_lite(uid, netuid, block)
             if neuron_info is not None:
@@ -955,9 +862,7 @@ class MockSubtensor(Subtensor):
 
         return neurons
 
-    def neuron_for_uid_lite(
-        self, uid: int, netuid: int, block: Optional[int] = None
-    ) -> Optional[NeuronInfoLite]:
+    def neuron_for_uid_lite(self, uid: int, netuid: int, block: Optional[int] = None) -> Optional[NeuronInfoLite]:
         if uid is None:
             return NeuronInfoLite.get_null_neuron()
 
@@ -1000,9 +905,7 @@ class MockSubtensor(Subtensor):
                 is_null=neuron_info.is_null,
             )
 
-    def get_transfer_fee(
-        self, wallet: "Wallet", dest: str, value: Union["Balance", float, int]
-    ) -> "Balance":
+    def get_transfer_fee(self, wallet: "Wallet", dest: str, value: Union["Balance", float, int]) -> "Balance":
         return Balance(700)
 
     def do_transfer(
@@ -1023,17 +926,17 @@ class MockSubtensor(Subtensor):
             raise Exception("Insufficient balance")
 
         # Remove from the free balance
-        self.chain_state["System"]["Account"][wallet.coldkeypub.ss58_address]["data"][
-            "free"
-        ][self.block_number] = (bal - transfer_balance - transfer_fee).rao
+        self.chain_state["System"]["Account"][wallet.coldkeypub.ss58_address]["data"]["free"][self.block_number] = (
+            bal - transfer_balance - transfer_fee
+        ).rao
 
         # Add to the free balance
         if dest not in self.chain_state["System"]["Account"]:
             self.chain_state["System"]["Account"][dest] = {"data": {"free": {}}}
 
-        self.chain_state["System"]["Account"][dest]["data"]["free"][
-            self.block_number
-        ] = (dest_bal + transfer_balance).rao
+        self.chain_state["System"]["Account"][dest]["data"]["free"][self.block_number] = (
+            dest_bal + transfer_balance
+        ).rao
 
         return True, None, None
 
