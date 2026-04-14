@@ -1,10 +1,7 @@
 import pytest
 from bittensor_wallet import Wallet
-from scalecodec.types import GenericCall
 
 from bittensor.core.extrinsics.asyncex import coldkey_swap
-from bittensor.core.extrinsics.pallets import SubtensorModule
-from bittensor.core.settings import DEFAULT_MEV_PROTECTION
 from bittensor.core.types import ExtrinsicResponse
 from bittensor.core.chain_data.coldkey_swap import ColdkeySwapAnnouncementInfo
 

@@ -3,7 +3,6 @@ import time
 import pytest
 
 from bittensor.utils.balance import Balance
-from bittensor.utils.btlogging import logging
 from tests.e2e_tests.utils import (
     TestSubnet,
     AdminUtils,
