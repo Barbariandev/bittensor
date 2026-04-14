@@ -767,7 +767,7 @@ class Subtensor(SubtensorMixin):
         block_hash = self.determine_block_hash(block)
         result = self.substrate.runtime_call(runtime_api, method, params, block_hash)
 
-        return result.value
+        return result
 
     def query_subtensor(
         self,
@@ -833,12 +833,11 @@ class Subtensor(SubtensorMixin):
             a subnet, or None if the query fails.
         """
         block_hash = self.determine_block_hash(block=block)
-        query = self.substrate.runtime_call(
+        decoded = self.substrate.runtime_call(
             api="SubnetInfoRuntimeApi",
             method="get_all_dynamic_info",
             block_hash=block_hash,
         )
-        decoded = query.decode()
         try:
             subnet_prices = self.get_subnet_prices(block=block)
             for sn in decoded:
@@ -957,12 +956,12 @@ class Subtensor(SubtensorMixin):
             params=[storage_index],
             block_hash=self.determine_block_hash(block),
         )
-        b_map = []
-        for uid, b in b_map_encoded:
-            if b.value is not None:
-                b_map.append((uid, b.value))
+        bond_map = []
+        for uid, bond in b_map_encoded:
+            if bond.value is not None:
+                bond_map.append((uid, bond))
 
-        return b_map
+        return bond_map
 
     def commit_reveal_enabled(self, netuid: int, block: Optional[int] = None) -> bool:
         """Check if commit-reveal mechanism is enabled for a given subnet at a specific block.
@@ -1123,7 +1122,7 @@ class Subtensor(SubtensorMixin):
         result = {}
         for id_, value in query:
             try:
-                result[decode_account_id(id_[0])] = decode_metadata(value)
+                result[id_] = decode_metadata(value)
             except Exception as error:
                 logging.error(
                     f"Error decoding [red]{id_}[/red] and [red]{value}[/red]: {error}"
@@ -1225,7 +1224,7 @@ class Subtensor(SubtensorMixin):
         )
         output = {}
         for key, item in query_certificates:
-            output[decode_account_id(key)] = Certificate(item.value)
+            output[key] = Certificate(item)
         return output
 
     def get_all_revealed_commitments(
@@ -3948,6 +3947,7 @@ class Subtensor(SubtensorMixin):
             storage_function="TimelockedWeightCommits",
             params=[storage_index],
             block_hash=self.determine_block_hash(block=block),
+            page_size=1,
         )
 
         commits = result.records[0][1] if result.records else []
@@ -4798,7 +4798,7 @@ class Subtensor(SubtensorMixin):
             params=[storage_index],
             block_hash=self.determine_block_hash(block),
         )
-        w_map = [(uid, w.value or []) for uid, w in w_map_encoded]
+        w_map = [(uid, w or []) for uid, w in w_map_encoded]
 
         return w_map
 

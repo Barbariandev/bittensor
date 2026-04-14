@@ -113,7 +113,7 @@ class ColdkeySwapDisputeInfo:
         return cls(coldkey=coldkey_ss58, disputed_block=int(query.value))
 
     @classmethod
-    def from_record(cls, record: tuple) -> "ColdkeySwapDisputeInfo":
+    def from_record(cls, record: tuple[str, int]) -> "ColdkeySwapDisputeInfo":
         """
         Creates a ColdkeySwapDisputeInfo object from a query_map record.
 
@@ -124,12 +124,7 @@ class ColdkeySwapDisputeInfo:
         Returns:
             ColdkeySwapDisputeInfo object with dispute details for the coldkey from the record.
         """
-        coldkey_ss58 = decode_account_id(record[0])
-        val = record[1]
-        disputed_block = (
-            int(val.value) if getattr(val, "value", None) is not None else int(val)
-        )
-        return cls(coldkey=coldkey_ss58, disputed_block=disputed_block)
+        return cls(coldkey=record[0], disputed_block=int(record[1]))
 
 
 @dataclass

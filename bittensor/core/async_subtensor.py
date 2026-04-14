@@ -38,7 +38,6 @@ from bittensor.core.chain_data import (
     SubnetIdentity,
     SubnetInfo,
     WeightCommitInfo,
-    decode_account_id,
 )
 from bittensor.core.chain_data.chain_identity import ChainIdentity
 from bittensor.core.chain_data.delegate_info import DelegatedInfo
@@ -891,7 +890,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[Any]:
+    ) -> Any:
         """Queries the runtime API of the Bittensor blockchain, providing a way to interact with the underlying runtime
         and retrieve data encoded in Scale Bytes format. Use this function for nonstandard queries to the runtime
          environment, if these cannot be accessed through other, standard getter methods.
@@ -915,7 +914,7 @@ class AsyncSubtensor(SubtensorMixin):
         result = await self.substrate.runtime_call(
             runtime_api, method, params, block_hash
         )
-        return result.value
+        return result
 
     async def query_subtensor(
         self,
@@ -1174,12 +1173,12 @@ class AsyncSubtensor(SubtensorMixin):
             params=[storage_index],
             block_hash=block_hash,
         )
-        b_map = []
-        async for uid, b in b_map_encoded:
-            if b.value is not None:
-                b_map.append((uid, b.value))
+        bond_map = []
+        async for uid, bond in b_map_encoded:
+            if bond is not None:
+                bond_map.append((uid, bond))
 
-        return b_map
+        return bond_map
 
     async def commit_reveal_enabled(
         self,
@@ -1411,7 +1410,7 @@ class AsyncSubtensor(SubtensorMixin):
         result = {}
         async for id_, value in query:
             try:
-                result[decode_account_id(id_[0])] = decode_metadata(value)
+                result[id_] = decode_metadata(value)
             except Exception as error:
                 logging.error(
                     f"Error decoding [red]{id_}[/red] and [red]{value}[/red]: {error}"
@@ -1532,7 +1531,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
         output = {}
         async for key, item in query_certificates:
-            output[decode_account_id(key)] = Certificate(item.value)
+            output[key] = Certificate(item)
         return output
 
     async def get_all_revealed_commitments(
@@ -1654,8 +1653,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         pairs = {}
-        async for netuid, destination in query:
-            hotkey_ss58 = decode_account_id(destination.value[0])
+        async for netuid, hotkey_ss58 in query:
             if hotkey_ss58:
                 pairs[int(netuid)] = hotkey_ss58
 
@@ -1865,9 +1863,8 @@ class AsyncSubtensor(SubtensorMixin):
             )
             if children:
                 formatted_children = []
-                for proportion, child in children.value:
+                for proportion, formatted_child in children.value:
                     # Convert U64 to int
-                    formatted_child = decode_account_id(child[0])
                     normalized_proportion = u64_normalized_float(proportion)
                     formatted_children.append((normalized_proportion, formatted_child))
                 return True, formatted_children, ""
@@ -1928,7 +1925,7 @@ class AsyncSubtensor(SubtensorMixin):
             [
                 (
                     u64_normalized_float(proportion),
-                    decode_account_id(child[0]),
+                    child,
                 )
                 for proportion, child in children
             ],
@@ -2384,10 +2381,8 @@ class AsyncSubtensor(SubtensorMixin):
 
         if query.records:
             async for record in query:
-                if record[1].value:
-                    result[decode_account_id(record[0])] = Balance.from_rao(
-                        record[1].value
-                    )
+                if record[1]:
+                    result[record[0]] = Balance.from_rao(record[1])
 
         return result
 
@@ -2498,7 +2493,7 @@ class AsyncSubtensor(SubtensorMixin):
 
         if query.records:
             async for c_id, value_obj in query:
-                data = value_obj.value
+                data = value_obj
                 if not data:
                     continue
                 crowdloans.append(
@@ -2582,8 +2577,8 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         return {
-            decode_account_id(ss58_address[0]): ChainIdentity.from_dict(
-                decode_hex_identity_dict(identity.value),
+            ss58_address: ChainIdentity.from_dict(
+                decode_hex_identity_dict(identity),
             )
             async for ss58_address, identity in identities
         }
@@ -2980,9 +2975,7 @@ class AsyncSubtensor(SubtensorMixin):
         # Fetch positions
         positions_values: list[tuple[dict, int, int]] = []
         positions_storage_keys: list[StorageKey] = []
-        async for _, p in positions_response:
-            position = p.value
-
+        async for _, position in positions_response:
             tick_low_idx = position.get("tick_low")[0]
             tick_high_idx = position.get("tick_high")[0]
             positions_values.append((position, tick_low_idx, tick_high_idx))
@@ -3388,9 +3381,9 @@ class AsyncSubtensor(SubtensorMixin):
         )
         netuids = []
         if result.records:
-            async for record in result:
-                if record[1].value:
-                    netuids.append(record[0])
+            async for netuid, is_member in result:
+                if is_member:
+                    netuids.append(netuid)
         return netuids
 
     async def get_neuron_certificate(
@@ -3549,7 +3542,7 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
 
-        return [decode_account_id(hotkey[0]) for hotkey in owned_hotkeys or []]
+        return owned_hotkeys or []
 
     async def get_parents(
         self,
@@ -3586,9 +3579,8 @@ class AsyncSubtensor(SubtensorMixin):
         )
         if parents:
             formatted_parents = []
-            for proportion, parent in parents.value:
+            for proportion, formatted_child in parents.value:
                 # Convert U64 to int
-                formatted_child = decode_account_id(parent[0])
                 normalized_proportion = u64_normalized_float(proportion)
                 formatted_parents.append((normalized_proportion, formatted_child))
             return formatted_parents
@@ -4360,10 +4352,7 @@ class AsyncSubtensor(SubtensorMixin):
         if query is None:
             return {}
 
-        return {
-            decode_account_id(ck): StakeInfo.list_from_dicts(st_info)
-            for ck, st_info in query
-        }
+        return {ck: StakeInfo.list_from_dicts(st_info) for ck, st_info in query}
 
     async def get_stake_for_hotkey(
         self,
@@ -4456,7 +4445,7 @@ class AsyncSubtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        return [decode_account_id(hotkey[0]) for hotkey in result or []]
+        return result or []
 
     async def get_start_call_delay(
         self,
@@ -4691,6 +4680,7 @@ class AsyncSubtensor(SubtensorMixin):
 
         prices = {}
         async for id_, current_sqrt_price in current_sqrt_prices:
+            # TODO investigate if we need to use fixed_to_decimal here instead
             current_sqrt_price = fixed_to_float(current_sqrt_price)
             current_price = current_sqrt_price * current_sqrt_price
             current_price_in_tao = Balance.from_rao(int(current_price * 1e9))
@@ -5909,7 +5899,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
         w_map = []
         async for uid, w in w_map_encoded:
-            w_map.append((uid, w.value))
+            w_map.append((uid, w))
 
         return w_map
 

@@ -104,21 +104,37 @@ class Certificate(str):
 
 def decode_hex_identity_dict(info_dictionary: dict[str, Any]) -> dict[str, Any]:
     """Decodes a dictionary of hexadecimal identities."""
-    decoded_info = {}
-    for k, v in info_dictionary.items():
-        if isinstance(v, dict):
-            item = next(iter(v.values()))
-        else:
-            item = v
 
-        if isinstance(item, tuple):
-            try:
-                decoded_info[k] = bytes(item).decode()
-            except UnicodeDecodeError:
-                print(f"Could not decode: {k}: {item}")
-        else:
-            decoded_info[k] = item
-    return decoded_info
+    def get_decoded(data: Optional[str]) -> str:
+        """Decodes a hex-encoded string."""
+        if data is None:
+            return ""
+        try:
+            return hex_to_bytes(data).decode()
+        except (UnicodeDecodeError, ValueError):
+            raise ValueError(f"Could not decode hex-encoded string: {data}")
+
+    for key, value in info_dictionary.items():
+        if isinstance(value, dict):
+            item = list(value.values())[0]
+            if isinstance(item, str) and item.startswith("0x"):
+                info_dictionary[key] = get_decoded(item)
+            else:
+                info_dictionary[key] = item
+        if key == "additional":
+            additional = []
+            for item in value:
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        additional.append((k, get_decoded(v)))
+                else:
+                    if isinstance(item, (tuple, list)) and len(item) == 2:
+                        k_, v = item
+                        k = k_ if k_ is not None else ""
+                        additional.append((k, get_decoded(v)))
+            info_dictionary[key] = additional
+
+    return info_dictionary
 
 
 def ss58_to_vec_u8(ss58_address: str) -> list[int]:

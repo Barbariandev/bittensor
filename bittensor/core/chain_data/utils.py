@@ -5,7 +5,7 @@ from typing import Optional, Union, TYPE_CHECKING
 
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec import ScaleBytes
-from scalecodec.base import RuntimeConfiguration, ScaleType
+from scalecodec.base import RuntimeConfiguration
 from scalecodec.type_registry import load_type_registry_preset
 from scalecodec.utils.ss58 import ss58_encode
 
@@ -136,10 +136,11 @@ def process_stake_data(stake_data: list) -> dict:
 
 
 def decode_metadata(metadata: dict) -> str:
-    commitment = metadata["info"]["fields"][0][0]
-    raw_bytes = next(iter(commitment.values()))
-    byte_tuple = raw_bytes[0] if raw_bytes else raw_bytes
-    return bytes(byte_tuple).decode("utf-8", errors="ignore")
+    commitment = metadata["info"]["fields"][0]
+    if isinstance(commitment, str):
+        return ""
+    hex_: str = next(iter(commitment.values()))
+    return bytes.fromhex(hex_.removeprefix("0x")).decode("utf-8", errors="ignore")
 
 
 def decode_block(data: bytes) -> int:
@@ -177,7 +178,10 @@ def decode_revealed_commitment(encoded_data) -> tuple[int, str]:
         else:
             return 4
 
-    com_bytes, revealed_block = encoded_data
+    com_hex: str
+    revealed_block: int
+    com_hex, revealed_block = encoded_data
+    com_bytes = bytes.fromhex(com_hex.removeprefix("0x"))
     offset = scale_decode_offset(com_bytes)
 
     revealed_commitment = bytes(com_bytes[offset:]).decode("utf-8", errors="ignore")
@@ -196,6 +200,6 @@ def decode_revealed_commitment_with_hotkey(
     """
     key, data = encoded_data
 
-    ss58_address = decode_account_id(next(iter(key)))
-    block_data = tuple(decode_revealed_commitment(p) for p in data.value)
+    ss58_address = key
+    block_data = tuple(decode_revealed_commitment(p) for p in data)
     return ss58_address, block_data
