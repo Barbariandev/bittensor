@@ -503,12 +503,8 @@ class AsyncSubtensor(SubtensorMixin):
         """
         runtime = await self.substrate.init_runtime(block_hash=block_hash)
         if runtime.metadata_v15 is not None:
-            metadata_v15_value = runtime.metadata_v15.value()
-            apis = {entry["name"]: entry for entry in metadata_v15_value["apis"]}
             try:
-                api_entry = apis[api]
-                methods = {entry["name"]: entry for entry in api_entry["methods"]}
-                _ = methods[method]
+                _ = runtime.runtime_api_map[method]
                 return True
             except KeyError:
                 return False

@@ -394,12 +394,8 @@ class Subtensor(SubtensorMixin):
         """
         runtime = self.substrate.init_runtime(block_hash=block_hash)
         if runtime.metadata_v15 is not None:
-            metadata_v15_value = runtime.metadata_v15.value()
-            apis = {entry["name"]: entry for entry in metadata_v15_value["apis"]}
             try:
-                api_entry = apis[api]
-                methods = {entry["name"]: entry for entry in api_entry["methods"]}
-                _ = methods[method]
+                _ = runtime.runtime_api_map[method]
                 return True
             except KeyError:
                 return False
@@ -2547,10 +2543,10 @@ class Subtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-        if result is None or not hasattr(result, "value"):
+        if result is None:
             return None
-
-        return [round(i / sum(result.value) * 100) for i in result.value]
+        total = sum(result.value)
+        return [round(i / total * 100) for i in result.value]
 
     def get_mechanism_count(
         self,
@@ -2804,9 +2800,9 @@ class Subtensor(SubtensorMixin):
         )
         netuids = []
         if result.records:
-            for record in result:
-                if record[1].value:
-                    netuids.append(record[0])
+            for netuid, is_member in result:
+                if is_member:
+                    netuids.append(netuid)
         return netuids
 
     def get_neuron_certificate(
