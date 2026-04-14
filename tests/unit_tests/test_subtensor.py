@@ -2958,9 +2958,7 @@ def test_get_owned_hotkeys_happy_path(subtensor, mocker):
     # Prep
     fake_coldkey = "fake_hotkey"
     fake_hotkey = "fake_hotkey"
-    fake_hotkeys = [
-        fake_hotkey,
-    ]
+    fake_hotkeys = mocker.MagicMock(spec=ScaleType, value=[fake_hotkey])
     mocked_subtensor = mocker.Mock(return_value=fake_hotkeys)
     mocker.patch.object(subtensor.substrate, "query", new=mocked_subtensor)
 
@@ -2974,15 +2972,17 @@ def test_get_owned_hotkeys_happy_path(subtensor, mocker):
         params=[fake_coldkey],
         block_hash=None,
     )
-    assert result == fake_hotkeys
+    assert result == fake_hotkeys.value
 
 
 def test_get_owned_hotkeys_return_empty(subtensor, mocker):
     """Tests that the output of get_owned_hotkeys is empty."""
     # Prep
     fake_coldkey = "fake_hotkey"
-    mocked_subtensor = mocker.Mock(return_value=[])
-    mocker.patch.object(subtensor.substrate, "query", new=mocked_subtensor)
+    mocked_return = mocker.MagicMock(spec=ScaleType, value=[])
+    mocked_subtensor = mocker.patch.object(
+        subtensor.substrate, "query", return_value=mocked_return
+    )
 
     # Call
     result = subtensor.get_owned_hotkeys(fake_coldkey)

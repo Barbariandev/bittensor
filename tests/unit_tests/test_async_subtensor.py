@@ -2906,21 +2906,15 @@ async def test_get_metagraph_info_all_fields(subtensor, mocker):
         async_subtensor.MetagraphInfo, "from_dict", return_value="parsed_metagraph"
     )
     mocked_runtime_metadata_v15 = {
-        "apis": [
-            {
-                "name": "SubnetInfoRuntimeApi",
-                "methods": [
-                    {"name": "get_selective_metagraph"},
-                    {"name": "get_metagraph"},
-                    {"name": "get_selective_mechagraph"},
-                ],
-            },
-        ]
+        "SubnetInfoRuntimeApi": {
+            "get_selective_metagraph": {"name": "get_selective_metagraph"},
+            "get_metagraph": {"name": "get_metagraph"},
+            "get_selective_mechagraph": {"name": "get_selective_mechagraph"},
+        },
     }
     mocked_runtime = mocker.Mock(spec=Runtime)
-    mocked_metadata = mocker.Mock()
-    mocked_metadata.value.return_value = mocked_runtime_metadata_v15
-    mocked_runtime.metadata_v15 = mocked_metadata
+    mocked_runtime.metadata_v15 = mocker.Mock()
+    mocked_runtime.runtime_api_map = mocked_runtime_metadata_v15
     mocker.patch.object(
         subtensor.substrate,
         "init_runtime",
@@ -2966,21 +2960,15 @@ async def test_get_metagraph_info_specific_fields(subtensor, mocker):
         async_subtensor.MetagraphInfo, "from_dict", return_value="parsed_metagraph"
     )
     mocked_runtime_metadata_v15 = {
-        "apis": [
-            {
-                "name": "SubnetInfoRuntimeApi",
-                "methods": [
-                    {"name": "get_selective_metagraph"},
-                    {"name": "get_metagraph"},
-                    {"name": "get_selective_mechagraph"},
-                ],
-            },
-        ]
+        "SubnetInfoRuntimeApi": {
+            "get_selective_metagraph": {"name": "get_selective_metagraph"},
+            "get_metagraph": {"name": "get_metagraph"},
+            "get_selective_mechagraph": {"name": "get_selective_mechagraph"},
+        },
     }
     mocked_runtime = mocker.Mock(spec=Runtime)
-    mocked_metadata = mocker.Mock()
-    mocked_metadata.value.return_value = mocked_runtime_metadata_v15
-    mocked_runtime.metadata_v15 = mocked_metadata
+    mocked_runtime.metadata_v15 = mocker.Mock()
+    mocked_runtime.runtime_api_map = mocked_runtime_metadata_v15
     mocker.patch.object(
         subtensor.substrate,
         "init_runtime",
@@ -3019,21 +3007,15 @@ async def test_get_metagraph_info_subnet_not_exist(subtensor, mocker):
         return_value=None,
     )
     mocked_runtime_metadata_v15 = {
-        "apis": [
-            {
-                "name": "SubnetInfoRuntimeApi",
-                "methods": [
-                    {"name": "get_selective_metagraph"},
-                    {"name": "get_metagraph"},
-                    {"name": "get_selective_mechagraph"},
-                ],
-            },
-        ]
+        "SubnetInfoRuntimeApi": {
+            "get_selective_metagraph": {"name": "get_selective_metagraph"},
+            "get_metagraph": {"name": "get_metagraph"},
+            "get_selective_mechagraph": {"name": "get_selective_mechagraph"},
+        },
     }
     mocked_runtime = mocker.Mock(spec=Runtime)
-    mocked_metadata = mocker.Mock()
-    mocked_metadata.value.return_value = mocked_runtime_metadata_v15
-    mocked_runtime.metadata_v15 = mocked_metadata
+    mocked_runtime.metadata_v15 = mocker.Mock()
+    mocked_runtime.runtime_api_map = mocked_runtime_metadata_v15
     mocker.patch.object(
         subtensor.substrate,
         "init_runtime",
@@ -3078,25 +3060,19 @@ async def test_get_metagraph_info_older_runtime_version(
         "runtime_call",
     )
     mocked_runtime_metadata_v15 = {
-        "apis": [
-            {
-                "name": "SubnetInfoRuntimeApi",
-                "methods": [
-                    {"name": "get_selective_metagraph"},
-                    {"name": "get_metagraph"},
-                ],
-            },
-        ]
+        "SubnetInfoRuntimeApi": {
+            "get_selective_metagraph": {"name": "get_selective_metagraph"},
+            "get_metagraph": {"name": "get_metagraph"},
+        },
     }
     if block == 6_800_000:
         # only the newer block should have 'mechagraph' runtime
-        mocked_runtime_metadata_v15["apis"][0]["methods"].append(
-            {"name": "get_selective_mechagraph"}
-        )
+        mocked_runtime_metadata_v15["SubnetInfoRuntimeApi"][
+            "get_selective_mechagraph"
+        ] = {"name": "get_selective_mechagraph"}
     mocked_runtime = mocker.Mock(spec=Runtime)
-    mocked_metadata = mocker.Mock()
-    mocked_metadata.value.return_value = mocked_runtime_metadata_v15
-    mocked_runtime.metadata_v15 = mocked_metadata
+    mocked_runtime.metadata_v15 = mocker.Mock()
+    mocked_runtime.runtime_api_map = mocked_runtime_metadata_v15
     mocker.patch.object(
         subtensor.substrate,
         "init_runtime",
