@@ -3244,7 +3244,7 @@ class Subtensor(SubtensorMixin):
 
         Parameters:
             coldkey_ss58: The SS58 address of the coldkey whose root claim preference to query.
-            block: The block number to query. Do not specify if using `block_hash` or `reuse_block`.
+            block: The block number to query.
 
         Returns:
 

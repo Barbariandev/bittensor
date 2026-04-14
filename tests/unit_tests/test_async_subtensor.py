@@ -336,7 +336,6 @@ async def test_get_total_subnets(subtensor, mocker):
         storage_function="TotalNetworks",
         params=[],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
 
 
@@ -369,7 +368,6 @@ async def test_get_subnets(subtensor, mocker, records, response):
         module="SubtensorModule",
         storage_function="NetworksAdded",
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == response
 
@@ -398,7 +396,9 @@ async def test_is_hotkey_delegate(subtensor, mocker, hotkey_ss58_in_result):
 
     # Asserts
     assert result == hotkey_ss58_in_result
-    mocked_get_delegates.assert_called_once_with(block_hash=None, reuse_block=True)
+    mocked_get_delegates.assert_called_once_with(
+        block_hash=subtensor.substrate.last_block_hash, reuse_block=True
+    )
 
 
 @pytest.mark.parametrize(
@@ -611,7 +611,6 @@ async def test_get_balance(subtensor, mocker):
         storage_function="Account",
         params=[fake_address],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=reuse_block,
     )
     mocked_balance.assert_called_once_with(
         subtensor.substrate.query.return_value.__getitem__.return_value.__getitem__.return_value
@@ -691,11 +690,11 @@ async def test_get_netuids_for_hotkey_with_records(subtensor, mocker):
 
     subtensor.substrate.query_map = mocked_substrate_query_map
     fake_hotkey_ss58 = "hotkey_58"
-    fake_block_hash = None
+    fake_block_hash = subtensor.substrate.last_block_hash
 
     # Call
     result = await subtensor.get_netuids_for_hotkey(
-        hotkey_ss58=fake_hotkey_ss58, block_hash=fake_block_hash, reuse_block=True
+        hotkey_ss58=fake_hotkey_ss58, reuse_block=True
     )
 
     # Assertions
@@ -704,7 +703,6 @@ async def test_get_netuids_for_hotkey_with_records(subtensor, mocker):
         storage_function="IsNetworkMember",
         params=[fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=True,
     )
     assert result == expected_response
 
@@ -726,11 +724,11 @@ async def test_get_netuids_for_hotkey_without_records(subtensor, mocker):
 
     subtensor.substrate.query_map = mocked_substrate_query_map
     fake_hotkey_ss58 = "hotkey_58"
-    fake_block_hash = None
+    fake_block_hash = subtensor.substrate.last_block_hash
 
     # Call
     result = await subtensor.get_netuids_for_hotkey(
-        hotkey_ss58=fake_hotkey_ss58, block_hash=fake_block_hash, reuse_block=True
+        hotkey_ss58=fake_hotkey_ss58, block_hash=None, reuse_block=True
     )
 
     # Assertions
@@ -739,7 +737,6 @@ async def test_get_netuids_for_hotkey_without_records(subtensor, mocker):
         storage_function="IsNetworkMember",
         params=[fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=True,
     )
     assert result == expected_response
 
@@ -770,7 +767,6 @@ async def test_subnet_exists(subtensor, mocker):
         storage_function="NetworksAdded",
         params=[fake_netuid],
         block_hash=fake_block_hash,
-        reuse_block_hash=fake_reuse_block_hash,
     )
     assert result == mocked_substrate_query.return_value.value
 
@@ -808,7 +804,6 @@ async def test_get_hyperparameter_happy_path(subtensor, mocker):
         storage_function=fake_param_name,
         params=[fake_netuid],
         block_hash=fake_block_hash,
-        reuse_block_hash=fake_reuse_block_hash,
     )
     assert result == mocked_substrate_query.return_value.value
 
@@ -913,7 +908,6 @@ async def test_get_existential_deposit_happy_path(subtensor, mocker):
         module_name="Balances",
         constant_name="ExistentialDeposit",
         block_hash=fake_block_hash,
-        reuse_block_hash=fake_reuse_block_hash,
     )
     spy_balance_from_rao.assert_called_once_with(
         mocked_substrate_get_constant.return_value.value
@@ -947,7 +941,6 @@ async def test_get_existential_deposit_raise_exception(subtensor, mocker):
         module_name="Balances",
         constant_name="ExistentialDeposit",
         block_hash=fake_block_hash,
-        reuse_block_hash=fake_reuse_block_hash,
     )
     spy_balance_from_rao.assert_not_called()
 
@@ -1065,7 +1058,6 @@ async def test_get_neuron_for_pubkey_and_subnet_success(subtensor, mocker):
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey],
         block_hash=None,
-        reuse_block_hash=False,
     )
     subtensor.substrate.runtime_call.assert_awaited_once()
     subtensor.substrate.runtime_call.assert_called_once_with(
@@ -1105,7 +1097,6 @@ async def test_get_neuron_for_pubkey_and_subnet_uid_not_found(subtensor, mocker)
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey],
         block_hash=None,
-        reuse_block_hash=False,
     )
     mocked_get_null_neuron.assert_called_once()
     assert result == "null_neuron"
@@ -1144,7 +1135,6 @@ async def test_get_neuron_for_pubkey_and_subnet_rpc_result_empty(subtensor, mock
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey],
         block_hash=None,
-        reuse_block_hash=False,
     )
     subtensor.substrate.runtime_call.assert_called_once_with(
         "NeuronInfoRuntimeApi",
@@ -1389,7 +1379,6 @@ async def test_query_identity_successful(subtensor, mocker):
         storage_function="IdentitiesV2",
         params=[fake_coldkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == ChainIdentity(
         additional="Additional",
@@ -1420,7 +1409,6 @@ async def test_query_identity_no_info(subtensor, mocker):
         storage_function="IdentitiesV2",
         params=[fake_coldkey_ss58],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result is None
 
@@ -1450,7 +1438,6 @@ async def test_query_identity_type_error(subtensor, mocker):
         storage_function="IdentitiesV2",
         params=[fake_coldkey_ss58],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result is None
 
@@ -1481,7 +1468,6 @@ async def test_weights_successful(subtensor, mocker):
         storage_function="Weights",
         params=[fake_netuid],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == [(0, [(1, 10), (2, 20)]), (1, [(0, 15), (2, 25)])]
 
@@ -1512,7 +1498,6 @@ async def test_bonds(subtensor, mocker):
         storage_function="Bonds",
         params=[fake_netuid],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == [(0, [(1, 100), (2, 200)]), (1, [(0, 150), (2, 250)])]
 
@@ -1539,7 +1524,6 @@ async def test_does_hotkey_exist_true(subtensor, mocker):
         storage_function="Owner",
         params=[fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result is True
 
@@ -1564,7 +1548,6 @@ async def test_does_hotkey_exist_false_for_specific_account(subtensor, mocker):
         storage_function="Owner",
         params=[fake_hotkey_ss58],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result is False
 
@@ -1593,7 +1576,6 @@ async def test_get_hotkey_owner_successful(subtensor, mocker):
         storage_function="Owner",
         params=[fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     mocked_does_hotkey_exist.assert_awaited_once_with(
         fake_hotkey_ss58, block_hash=fake_block_hash
@@ -1622,7 +1604,6 @@ async def test_get_hotkey_owner_non_existent_hotkey(subtensor, mocker):
         storage_function="Owner",
         params=[fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result is None
 
@@ -1899,7 +1880,6 @@ async def test_get_children_success(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ChildKeys",
         params=[fake_hotkey, fake_netuid],
-        reuse_block_hash=False,
     )
     mocked_decode_account_id.assert_has_calls(
         [mocker.call("child_key_1"), mocker.call("child_key_2")]
@@ -1927,7 +1907,6 @@ async def test_get_children_no_children(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ChildKeys",
         params=[fake_hotkey, fake_netuid],
-        reuse_block_hash=False,
     )
     assert result == (True, [], "")
 
@@ -1957,7 +1936,6 @@ async def test_get_children_substrate_request_exception(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ChildKeys",
         params=[fake_hotkey, fake_netuid],
-        reuse_block_hash=False,
     )
     mocked_format_error_message.assert_called_once_with(fake_exception)
     assert result == (False, [], "Formatted error message")
@@ -1998,7 +1976,6 @@ async def test_get_parents_success(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ParentKeys",
         params=[fake_hotkey, fake_netuid],
-        reuse_block_hash=False,
     )
     mocked_decode_account_id.assert_has_calls(
         [mocker.call("parent_key_1"), mocker.call("parent_key_2")]
@@ -2026,7 +2003,6 @@ async def test_get_parents_no_parents(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ParentKeys",
         params=[fake_hotkey, fake_netuid],
-        reuse_block_hash=False,
     )
     assert result == []
 
@@ -2077,7 +2053,6 @@ async def test_get_children_pending(mock_substrate, subtensor):
         storage_function="PendingChildKeys",
         params=[1, "hotkey_ss58"],
         block_hash=None,
-        reuse_block_hash=False,
     )
 
 
@@ -2198,7 +2173,6 @@ async def test_get_vote_data_success(subtensor, mocker):
         storage_function="Voting",
         params=[fake_proposal_hash],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == mocked_proposal_vote_data
 
@@ -2224,7 +2198,6 @@ async def test_get_vote_data_no_data(subtensor, mocker):
         storage_function="Voting",
         params=[fake_proposal_hash],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result is None
 
@@ -2286,7 +2259,6 @@ async def test_get_delegate_identities(subtensor, mocker):
         module="SubtensorModule",
         storage_function="IdentitiesV2",
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
 
     assert result["delegate1_ss58"].name == "Chain Delegate 1"
@@ -2314,7 +2286,6 @@ async def test_is_hotkey_registered_true(subtensor, mocker):
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey_ss58],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result is True
 
@@ -2341,7 +2312,6 @@ async def test_is_hotkey_registered_false(subtensor, mocker):
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey_ss58],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result is False
 
@@ -2369,7 +2339,6 @@ async def test_get_uid_for_hotkey_on_subnet_registered(subtensor, mocker):
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result == fake_uid
 
@@ -2397,7 +2366,6 @@ async def test_get_uid_for_hotkey_on_subnet_not_registered(subtensor, mocker):
         storage_function="Uids",
         params=[fake_netuid, fake_hotkey_ss58],
         block_hash=fake_block_hash,
-        reuse_block_hash=False,
     )
     assert result is None
 
@@ -2823,7 +2791,6 @@ async def test_get_all_neuron_certificates(mocker, subtensor):
         storage_function="NeuronCertificates",
         params=[fake_netuid],
         block_hash=None,
-        reuse_block_hash=False,
     )
 
 
@@ -2869,7 +2836,6 @@ async def test_get_owned_hotkeys_happy_path(subtensor, mocker):
         storage_function="OwnedHotkeys",
         params=[fake_coldkey],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result == [mocked_decode_account_id.return_value]
     mocked_decode_account_id.assert_called_once_with(fake_hotkey)
@@ -2892,7 +2858,6 @@ async def test_get_owned_hotkeys_return_empty(subtensor, mocker):
         storage_function="OwnedHotkeys",
         params=[fake_coldkey],
         block_hash=None,
-        reuse_block_hash=False,
     )
     assert result == []
 
@@ -4893,7 +4858,6 @@ async def test_get_root_claim_type(mocker, subtensor, fake_result, expected_resu
         storage_function="RootClaimType",
         params=[fake_coldkey_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     assert result == expected_result
 
@@ -4949,7 +4913,6 @@ async def test_get_root_claimable_all_rates(mocker, subtensor):
         storage_function="RootClaimable",
         params=[hotkey_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_fixed_to_float.assert_called_once_with({"bits": 6520190}, frac_bits=32)
     assert result == {14: mocked_fixed_to_float.return_value}
@@ -5033,7 +4996,6 @@ async def test_get_root_claimed(mocker, subtensor):
         storage_function="RootClaimed",
         params=[netuid, hotkey_ss58, coldkey_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     assert result == Balance.from_rao(1).set_unit(netuid)
 
@@ -5211,7 +5173,6 @@ async def test_get_proxies(subtensor, mocker):
         module="Proxy",
         storage_function="Proxies",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_query_map_record.assert_called_once_with(fake_record)
     assert result == {fake_real_account: [fake_proxy_list]}
@@ -5245,7 +5206,6 @@ async def test_get_proxies_for_real_account(subtensor, mocker):
         storage_function="Proxies",
         params=[fake_real_account_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_query.assert_called_once_with(mocked_query.return_value)
     assert result == mocked_from_query.return_value
@@ -5278,7 +5238,6 @@ async def test_get_proxy_announcement(subtensor, mocker):
         storage_function="Announcements",
         params=[fake_delegate_account_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_dict.assert_called_once_with(mocked_query.return_value.value[0])
     assert result == mocked_from_dict.return_value
@@ -5319,7 +5278,6 @@ async def test_get_proxy_announcements(subtensor, mocker):
         module="Proxy",
         storage_function="Announcements",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_query_map_record.assert_called_once_with(fake_record)
     assert result == {fake_delegate: fake_proxies_list}
@@ -6228,7 +6186,6 @@ async def test_get_coldkey_swap_announcement(subtensor, mocker):
         storage_function="ColdkeySwapAnnouncements",
         params=[fake_coldkey_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_query.assert_called_once_with(
         coldkey_ss58=fake_coldkey_ss58, query=mocked_query.return_value
@@ -6260,7 +6217,6 @@ async def test_get_coldkey_swap_announcements(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ColdkeySwapAnnouncements",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_record.assert_called_once_with(fake_record)
     assert result == [mocked_from_record.return_value]
@@ -6282,7 +6238,6 @@ async def test_get_coldkey_swap_announcement_delay(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ColdkeySwapAnnouncementDelay",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     assert result == mocked_query.return_value.value
 
@@ -6303,7 +6258,6 @@ async def test_get_coldkey_swap_reannouncement_delay(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ColdkeySwapReannouncementDelay",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     assert result == mocked_query.return_value.value
 
@@ -6428,7 +6382,6 @@ async def test_get_coldkey_swap_dispute(subtensor, mocker):
         storage_function="ColdkeySwapDisputes",
         params=[fake_coldkey_ss58],
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_query.assert_called_once_with(
         coldkey_ss58=fake_coldkey_ss58, query=mocked_query.return_value
@@ -6460,7 +6413,6 @@ async def test_get_coldkey_swap_disputes(subtensor, mocker):
         module="SubtensorModule",
         storage_function="ColdkeySwapDisputes",
         block_hash=mocked_determine_block_hash.return_value,
-        reuse_block_hash=False,
     )
     mocked_from_record.assert_called_once_with(fake_record)
     assert result == [mocked_from_record.return_value]

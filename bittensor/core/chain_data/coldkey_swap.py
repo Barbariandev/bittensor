@@ -32,7 +32,7 @@ class ColdkeySwapAnnouncementInfo:
 
     @classmethod
     def from_query(
-        cls, coldkey_ss58: str, query: ScaleType
+        cls, coldkey_ss58: str, query: Optional[ScaleType]
     ) -> Optional["ColdkeySwapAnnouncementInfo"]:
         """
         Creates a ColdkeySwapAnnouncementInfo object from a Substrate query result.

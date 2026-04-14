@@ -10,7 +10,7 @@ def test_coldkey_swap_announcement_info_from_query_none(mocker):
     """Test from_query returns None when query has no value."""
     # Prep
     coldkey_ss58 = mocker.Mock(spec=str)
-    query = mocker.Mock(spec=ScaleType)
+    query = None
 
     # Call
     from_query = ColdkeySwapAnnouncementInfo.from_query(coldkey_ss58, query)

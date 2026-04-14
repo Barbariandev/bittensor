@@ -485,6 +485,8 @@ class AsyncSubtensor(SubtensorMixin):
             return block_hash
         if block is not None:
             return await self.get_block_hash(block)
+        if reuse_block:
+            return self.substrate.last_block_hash
         return None
 
     async def _runtime_method_exists(
@@ -640,7 +642,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function=param_name,
             params=[netuid],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         return getattr(result, "value", result)
@@ -778,7 +779,6 @@ class AsyncSubtensor(SubtensorMixin):
             module_name=module_name,
             constant_name=constant_name,
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
     async def query_map(
@@ -813,7 +813,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function=name,
             params=params,
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return result
 
@@ -847,7 +846,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function=name,
             params=params,
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
     async def query_module(
@@ -883,7 +881,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function=name,
             params=params,
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
     async def query_runtime_api(
@@ -950,7 +947,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function=name,
             params=params,
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
     async def state_call(
@@ -985,7 +981,6 @@ class AsyncSubtensor(SubtensorMixin):
             method="state_call",
             params=[method, data],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
     # Common subtensor methods =========================================================================================
@@ -1178,7 +1173,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Bonds",
             params=[storage_index],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         b_map = []
         async for uid, b in b_map_encoded:
@@ -1294,7 +1288,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Owner",
             params=[hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return_val = (
             False
@@ -1620,7 +1613,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="NetworksAdded",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         subnets = []
         if result.records:
@@ -1697,7 +1689,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Account",
             params=[address],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return Balance(balance["data"]["free"])
 
@@ -1871,7 +1862,6 @@ class AsyncSubtensor(SubtensorMixin):
                 storage_function="ChildKeys",
                 params=[hotkey_ss58, netuid],
                 block_hash=block_hash,
-                reuse_block_hash=reuse_block,
             )
             if children:
                 formatted_children = []
@@ -1927,7 +1917,6 @@ class AsyncSubtensor(SubtensorMixin):
                 block_hash,
                 reuse_block,
             ),
-            reuse_block_hash=reuse_block,
         )
         pending_value = getattr(response, "value", response)
         children, cooldown = cast(
@@ -1980,7 +1969,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="ColdkeySwapAnnouncements",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         if query is None:
             return None
@@ -2018,7 +2006,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="ColdkeySwapAnnouncements",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return [
             ColdkeySwapAnnouncementInfo.from_record(record)
@@ -2054,7 +2041,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="ColdkeySwapAnnouncementDelay",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         value = getattr(query, "value", query)
         return cast(int, value) if value is not None else 0
@@ -2088,7 +2074,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="ColdkeySwapReannouncementDelay",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         value = getattr(query, "value", query)
         return cast(int, value) if value is not None else 0
@@ -2125,7 +2110,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="ColdkeySwapDisputes",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         if query is None:
             return None
@@ -2161,7 +2145,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="ColdkeySwapDisputes",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return [
             ColdkeySwapDisputeInfo.from_record(record) async for record in query_map
@@ -2303,7 +2286,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="CommitmentOf",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         if commit_data is None:
             return ""
@@ -2597,7 +2579,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule",
             storage_function="IdentitiesV2",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         return {
@@ -2749,7 +2730,6 @@ class AsyncSubtensor(SubtensorMixin):
             module_name="Balances",
             constant_name="ExistentialDeposit",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         if result is None:
@@ -2833,7 +2813,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Owner",
             params=[hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         exists = False
         if hk_owner_query:
@@ -2871,7 +2850,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="LastBondsReset",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return block
 
@@ -3407,7 +3385,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="IsNetworkMember",
             params=[hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         netuids = []
         if result.records:
@@ -3493,7 +3470,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Uids",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         if (uid := getattr(uid_query, "value", None)) is None:
             return NeuronInfo.get_null_neuron()
@@ -3571,7 +3547,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="OwnedHotkeys",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         return [decode_account_id(hotkey[0]) for hotkey in owned_hotkeys or []]
@@ -3608,7 +3583,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="ParentKeys",
             params=[hotkey_ss58, netuid],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         if parents:
             formatted_parents = []
@@ -3652,7 +3626,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="Proxy",
             storage_function="Proxies",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         proxies = {}
@@ -3697,7 +3670,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Proxies",
             params=[real_account_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return ProxyInfo.from_query(query)
 
@@ -3735,7 +3707,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Announcements",
             params=[delegate_account_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         query_value = getattr(query, "value", query)
         return ProxyAnnouncementInfo.from_dict(cast(list[Any], query_value)[0])
@@ -3771,7 +3742,6 @@ class AsyncSubtensor(SubtensorMixin):
             module="Proxy",
             storage_function="Announcements",
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         announcements = {}
         async for record in query_map:
@@ -3952,7 +3922,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="RootClaimType",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         query_value = getattr(query, "value", query)
         claim_type = cast(dict[str, Any], query_value)
@@ -4002,7 +3971,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="RootAlphaDividendsPerSubnet",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         value = getattr(query, "value", query)
         return Balance.from_rao(cast(int, value)).set_unit(netuid=netuid)
@@ -4071,7 +4039,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="RootClaimable",
             params=[hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         query_value = getattr(query, "value", query)
         bits_list = next(iter(cast(list[list[tuple[int, FixedPoint]]], query_value)))
@@ -4171,7 +4138,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="RootClaimed",
             params=[netuid, hotkey_ss58, coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         value = getattr(query, "value", query)
         return Balance.from_rao(cast(int, value)).set_unit(netuid=netuid)
@@ -4894,7 +4860,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="TotalNetworks",
             params=[],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return getattr(result, "value", None)
 
@@ -5013,7 +4978,6 @@ class AsyncSubtensor(SubtensorMixin):
                 storage_function="Voting",
                 params=[proposal_hash],
                 block_hash=block_hash,
-                reuse_block_hash=reuse_block,
             ),
         )
 
@@ -5052,7 +5016,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Uids",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return cast(Optional[int], getattr(result, "value", result))
 
@@ -5657,7 +5620,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="IdentitiesV2",
             params=[coldkey_ss58],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
 
         if not identity_info:
@@ -5778,7 +5740,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="NetworksAdded",
             params=[netuid],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         return getattr(result, "value", False)
 
@@ -5945,7 +5906,6 @@ class AsyncSubtensor(SubtensorMixin):
             storage_function="Weights",
             params=[storage_index],
             block_hash=block_hash,
-            reuse_block_hash=reuse_block,
         )
         w_map = []
         async for uid, w in w_map_encoded:
