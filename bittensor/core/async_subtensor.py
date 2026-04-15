@@ -147,6 +147,8 @@ from bittensor.core.types import (
     SubtensorMixin,
     UIDs,
     Weights,
+    PositionResponse,
+    NeuronCertificateResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -1678,13 +1680,13 @@ class AsyncSubtensor(SubtensorMixin):
             Balance: The balance object containing the account's TAO balance.
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        balance = await self.substrate.query(
+        balance: ScaleType[dict[str, Any]] = await self.substrate.query(
             module="System",
             storage_function="Account",
             params=[address],
             block_hash=block_hash,
         )
-        return Balance(balance["data"]["free"])
+        return Balance(balance.value["data"]["free"])
 
     async def get_balances(
         self,
@@ -1934,7 +1936,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional["ColdkeySwapAnnouncementInfo"]:
+    ) -> Optional[ColdkeySwapAnnouncementInfo]:
         """
         Retrieves coldkey swap announcement for a specific coldkey.
 
@@ -1957,13 +1959,13 @@ class AsyncSubtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/coldkey-swap>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[Optional[tuple[int, str]]] = await self.substrate.query(
             module="SubtensorModule",
             storage_function="ColdkeySwapAnnouncements",
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        if query is None:
+        if query.value is None:
             return None
         return ColdkeySwapAnnouncementInfo.from_query(
             coldkey_ss58=coldkey_ss58, query=query
@@ -2969,11 +2971,12 @@ class AsyncSubtensor(SubtensorMixin):
         current_tick = price_to_tick(sqrt_price**2)
 
         # Fetch positions
-        positions_values: list[tuple[dict, int, int]] = []
+        positions_values: list[tuple[PositionResponse, int, int]] = []
         positions_storage_keys: list[StorageKey] = []
+        position: PositionResponse
         async for _, position in positions_response:
-            tick_low_idx = position.get("tick_low")[0]
-            tick_high_idx = position.get("tick_high")[0]
+            tick_low_idx = position.get("tick_low")
+            tick_high_idx = position.get("tick_high")
             positions_values.append((position, tick_low_idx, tick_high_idx))
             tick_low_sk = await self.substrate.create_storage_key(
                 pallet="Swap",
@@ -3052,12 +3055,12 @@ class AsyncSubtensor(SubtensorMixin):
             positions.append(
                 LiquidityPosition(
                     **{
-                        "id": position.get("id")[0],
+                        "id": position.get("id"),
                         "price_low": Balance.from_tao(
-                            tick_to_price(position.get("tick_low")[0])
+                            tick_to_price(position.get("tick_low"))
                         ),
                         "price_high": Balance.from_tao(
-                            tick_to_price(position.get("tick_high")[0])
+                            tick_to_price(position.get("tick_high"))
                         ),
                         "liquidity": Balance.from_rao(position.get("liquidity")),
                         "fees_tao": fees_tao,
@@ -3409,22 +3412,21 @@ class AsyncSubtensor(SubtensorMixin):
         This function is used for certificate discovery for setting up mutual tls communication between neurons.
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        certificate = cast(
-            Union[str, dict],
-            await self.query_module(
-                module="SubtensorModule",
-                name="NeuronCertificates",
-                block_hash=block_hash,
-                reuse_block=reuse_block,
-                params=[netuid, hotkey_ss58],
-            ),
+        certificate_query: ScaleType[
+            Optional[str | NeuronCertificateResponse]
+        ] = await self.query_module(
+            module="SubtensorModule",
+            name="NeuronCertificates",
+            block_hash=block_hash,
+            reuse_block=reuse_block,
+            params=[netuid, hotkey_ss58],
         )
-        try:
-            if certificate:
+        certificate: Optional[NeuronCertificateResponse] = certificate_query.value
+        if certificate is not None:
+            try:
                 return Certificate(certificate)
-
-        except AttributeError:
-            return None
+            except AttributeError:
+                return None
         return None
 
     async def get_neuron_for_pubkey_and_subnet(
@@ -4460,17 +4462,14 @@ class AsyncSubtensor(SubtensorMixin):
         Return:
             Amount of blocks after the start call can be executed.
         """
-        return cast(
-            int,
-            (
-                await self.query_subtensor(
-                    name="StartCallDelay",
-                    block=block,
-                    block_hash=block_hash,
-                    reuse_block=reuse_block,
-                )
-            ),
-        )
+        return (
+            await self.query_subtensor(
+                name="StartCallDelay",
+                block=block,
+                block_hash=block_hash,
+                reuse_block=reuse_block,
+            )
+        ).value
 
     async def get_subnet_burn_cost(
         self,
@@ -4957,20 +4956,17 @@ class AsyncSubtensor(SubtensorMixin):
         network, particularly how proposals are received and acted upon by the governing body.
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        vote_data = cast(
-            Optional[dict[str, Any]],
-            await self.substrate.query(
-                module="Triumvirate",
-                storage_function="Voting",
-                params=[proposal_hash],
-                block_hash=block_hash,
-            ),
+        vote_data: ScaleType[Optional[dict[str, Any]]] = await self.substrate.query(
+            module="Triumvirate",
+            storage_function="Voting",
+            params=[proposal_hash],
+            block_hash=block_hash,
         )
 
-        if vote_data is None:
+        if vote_data.value is None:
             return None
 
-        return ProposalVoteData.from_dict(vote_data)
+        return ProposalVoteData.from_dict(vote_data.value)
 
     async def get_uid_for_hotkey_on_subnet(
         self,
@@ -5328,7 +5324,11 @@ class AsyncSubtensor(SubtensorMixin):
             reuse_block=reuse_block,
             params=[netuid],
         )
-        return True if query and query.value > 0 else False
+        qv: Optional[int] = query.value
+        if qv is None or qv <= 0:
+            return False
+        else:
+            return True
 
     async def last_drand_round(self) -> Optional[int]:
         """Retrieves the last drand round emitted in Bittensor.
@@ -5608,16 +5608,10 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
 
-        if not identity_info:
+        identity_data: Optional[dict[str, Any]] = identity_info.value
+        if identity_info is None:
             return None
-
-        try:
-            identity_data = getattr(identity_info, "value", identity_info)
-            return ChainIdentity.from_dict(
-                decode_hex_identity_dict(cast(dict[str, Any], identity_data)),
-            )
-        except TypeError:
-            return None
+        return ChainIdentity.from_dict(decode_hex_identity_dict(identity_data))
 
     async def recycle(
         self,

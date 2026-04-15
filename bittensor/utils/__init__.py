@@ -14,7 +14,7 @@ from async_substrate_interface.utils import (
 from bittensor_wallet import Keypair
 from bittensor_wallet.errors import KeyFileError, PasswordError
 from bittensor_wallet.utils import SS58_FORMAT
-from scalecodec import (
+from scalecodec.utils.ss58 import (
     ss58_decode,
     ss58_encode,
     is_valid_ss58_address as _is_valid_ss58_address,
@@ -22,6 +22,7 @@ from scalecodec import (
 
 from bittensor.core import settings
 from bittensor.utils.btlogging import logging
+from bittensor.core.types import NeuronCertificateResponse
 from .registration import torch, use_torch
 from .version import check_version, VersionCheckError
 
@@ -93,10 +94,11 @@ def get_netuid_and_mechid_by_storage_index(storage_index: int) -> tuple[int, int
 
 
 class Certificate(str):
-    def __new__(cls, data: Union[str, dict]):
+    def __new__(cls, data: str | NeuronCertificateResponse):
         if isinstance(data, dict):
-            tuple_ascii = data["public_key"][0]
-            string = chr(data["algorithm"]) + "".join(chr(i) for i in tuple_ascii)
+            pubkey: str = data["public_key"]
+            pubkey_bytes = bytes.fromhex(pubkey.removeprefix("0x"))
+            string = chr(data["algorithm"]) + "".join([chr(i) for i in pubkey_bytes])
         else:
             string = data
         return str.__new__(cls, string)

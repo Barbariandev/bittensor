@@ -31,7 +31,7 @@ class ColdkeySwapAnnouncementInfo:
 
     @classmethod
     def from_query(
-        cls, coldkey_ss58: str, query: Optional[ScaleType]
+        cls, coldkey_ss58: str, query: ScaleType
     ) -> Optional["ColdkeySwapAnnouncementInfo"]:
         """
         Creates a ColdkeySwapAnnouncementInfo object from a Substrate query result.
@@ -43,11 +43,10 @@ class ColdkeySwapAnnouncementInfo:
         Returns:
             ColdkeySwapAnnouncementInfo if announcement exists, None otherwise.
         """
-        if not getattr(query, "value", None):
+        if query.value is None:
             return None
-
-        execution_block = query.value[0]
-        new_coldkey_hash = "0x" + bytes(query.value[1][0]).hex()
+        qv: tuple[int, str] = query.value
+        execution_block, new_coldkey_hash = qv
         return cls(
             coldkey=coldkey_ss58,
             execution_block=execution_block,

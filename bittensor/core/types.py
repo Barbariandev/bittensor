@@ -587,3 +587,8 @@ class PositionResponse(TypedDict):
     liquidity: int
     fees_tao: FixedPoint
     fees_alpha: FixedPoint
+
+
+class NeuronCertificateResponse(TypedDict):
+    public_key: str
+    algorithm: int

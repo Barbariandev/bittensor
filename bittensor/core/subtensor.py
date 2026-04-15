@@ -147,6 +147,7 @@ from bittensor.core.types import (
     UIDs,
     Weights,
     PositionResponse,
+    NeuronCertificateResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -520,8 +521,7 @@ class Subtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-
-        return getattr(result, "value", result)
+        return result.value
 
     @property
     def block(self) -> int:
@@ -1340,13 +1340,13 @@ class Subtensor(SubtensorMixin):
         Returns:
             Balance: The balance object containing the account's TAO balance.
         """
-        balance = self.substrate.query(
+        balance: ScaleType[dict[str, Any]] = self.substrate.query(
             module="System",
             storage_function="Account",
             params=[address],
             block_hash=self.determine_block_hash(block),
         )
-        return Balance(cast(dict[str, Any], balance)["data"]["free"])
+        return Balance(balance.value["data"]["free"])
 
     def get_balances(
         self,
@@ -1591,16 +1591,16 @@ class Subtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/coldkey-swap>
         """
         block_hash = self.determine_block_hash(block)
-        query = self.substrate.query(
+        query: ScaleType[Optional[tuple[int, str]]] = self.substrate.query(
             module="SubtensorModule",
             storage_function="ColdkeySwapAnnouncements",
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        if query is None:
+        if query.value is None:
             return None
         return ColdkeySwapAnnouncementInfo.from_query(
-            coldkey_ss58=coldkey_ss58, query=cast(ScaleType, query)
+            coldkey_ss58=coldkey_ss58, query=query
         )
 
     def get_coldkey_swap_announcements(
@@ -1727,12 +1727,12 @@ class Subtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/coldkey-swap>
         """
         block_hash = self.determine_block_hash(block)
-        query = self.substrate.query(
+        query: ScaleType[Optional[int]] = self.substrate.query(
             module="SubtensorModule",
             storage_function="ColdkeySwapReannouncementDelay",
             block_hash=block_hash,
         )
-        return cast(int, query.value) or 0
+        return query.value or 0
 
     def get_coldkey_swap_dispute(
         self,
@@ -2124,13 +2124,13 @@ class Subtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
-        result = self.query_subtensor(
+        result: ScaleType[int] = self.query_subtensor(
             name="Delegates",
             block=block,
             params=[hotkey_ss58],
         )
 
-        return u16_normalized_float(result.value)  # type: ignore
+        return u16_normalized_float(result.value)
 
     def get_delegated(
         self, coldkey_ss58: str, block: Optional[int] = None
@@ -2821,18 +2821,20 @@ class Subtensor(SubtensorMixin):
 
         This function is used for certificate discovery for setting up mutual tls communication between neurons.
         """
-        certificate_query = self.query_module(
-            module="SubtensorModule",
-            name="NeuronCertificates",
-            block=block,
-            params=[netuid, hotkey_ss58],
+        certificate_query: ScaleType[Optional[str | NeuronCertificateResponse]] = (
+            self.query_module(
+                module="SubtensorModule",
+                name="NeuronCertificates",
+                block=block,
+                params=[netuid, hotkey_ss58],
+            )
         )
-        try:
-            if certificate_query:
-                certificate = cast(dict, certificate_query)
+        certificate: Optional[NeuronCertificateResponse] = certificate_query.value
+        if certificate is not None:
+            try:
                 return Certificate(certificate)
-        except AttributeError:
-            return None
+            except AttributeError:
+                return None
         return None
 
     def get_neuron_for_pubkey_and_subnet(
@@ -3676,13 +3678,10 @@ class Subtensor(SubtensorMixin):
         Return:
             Amount of blocks after the start call can be executed.
         """
-        return cast(
-            int,
-            self.query_subtensor(
-                name="StartCallDelay",
-                block=block,
-            ),
-        )
+        return self.query_subtensor(
+            name="StartCallDelay",
+            block=block,
+        ).value
 
     def get_subnet_burn_cost(self, block: Optional[int] = None) -> Optional[Balance]:
         """
@@ -4064,20 +4063,17 @@ class Subtensor(SubtensorMixin):
         This function is important for tracking and understanding the decision-making processes within the Bittensor
         network, particularly how proposals are received and acted upon by the governing body.
         """
-        vote_data = cast(
-            Optional[dict[str, Any]],
-            self.substrate.query(
-                module="Triumvirate",
-                storage_function="Voting",
-                params=[proposal_hash],
-                block_hash=self.determine_block_hash(block),
-            ),
+        vote_data: ScaleType[Optional[dict[str, Any]]] = self.substrate.query(
+            module="Triumvirate",
+            storage_function="Voting",
+            params=[proposal_hash],
+            block_hash=self.determine_block_hash(block),
         )
 
         if vote_data is None:
             return None
 
-        return ProposalVoteData.from_dict(vote_data)
+        return ProposalVoteData.from_dict(vote_data.value)
 
     def get_uid_for_hotkey_on_subnet(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
@@ -4348,7 +4344,11 @@ class Subtensor(SubtensorMixin):
             block=block,
             params=[netuid],
         )
-        return True if query and query.value > 0 else False
+        qv: Optional[int] = query.value
+        if qv is None or qv <= 0:
+            return False
+        else:
+            return True
 
     def last_drand_round(self) -> Optional[int]:
         """Retrieves the last drand round emitted in Bittensor.
@@ -4574,17 +4574,10 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-
-        if not identity_info:
+        identity_data: Optional[dict[str, dict[Any, Any] | str]] = identity_info.value
+        if identity_data is None:
             return None
-
-        try:
-            identity_data = identity_info.value
-            return ChainIdentity.from_dict(
-                decode_hex_identity_dict(cast(dict[str, Any], identity_data)),
-            )
-        except TypeError:
-            return None
+        return ChainIdentity.from_dict(decode_hex_identity_dict(identity_data))
 
     def recycle(self, netuid: int, block: Optional[int] = None) -> Optional[Balance]:
         """Retrieves the 'Burn' hyperparameter for a specified subnet.
