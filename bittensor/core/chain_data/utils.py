@@ -11,6 +11,7 @@ from bittensor.utils.balance import Balance
 
 if TYPE_CHECKING:
     from async_substrate_interface.sync_substrate import QueryMapResult
+    from bittensor.core.types import CommitmentOfResponse
 
 
 class ChainDataType(Enum):
@@ -115,7 +116,7 @@ def process_stake_data(stake_data: list) -> dict:
     return decoded_stake_data
 
 
-def decode_metadata(metadata: dict) -> str:
+def decode_metadata(metadata: "CommitmentOfResponse") -> str:
     commitment = metadata["info"]["fields"][0]
     if isinstance(commitment, str):
         return ""

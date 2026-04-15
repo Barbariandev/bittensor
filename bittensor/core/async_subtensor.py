@@ -149,6 +149,8 @@ from bittensor.core.types import (
     Weights,
     PositionResponse,
     NeuronCertificateResponse,
+    CommitmentOfResponse,
+    CrowdloansResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -346,9 +348,9 @@ class AsyncSubtensor(SubtensorMixin):
     async def _decode_crowdloan_entry(
         self,
         crowdloan_id: int,
-        data: dict,
+        data: CrowdloansResponse,
         block_hash: Optional[str] = None,
-    ) -> "CrowdloanInfo":
+    ) -> CrowdloanInfo:
         """
         Internal helper to parse and decode a single Crowdloan record.
 
@@ -640,8 +642,7 @@ class AsyncSubtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-
-        return getattr(result, "value", result)
+        return result.value
 
     async def sim_swap(
         self,
@@ -1054,14 +1055,14 @@ class AsyncSubtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/glossary#epoch>
         """
-        query = await self.query_subtensor(
+        query: ScaleType[int] = await self.query_subtensor(
             name="BlocksSinceLastStep",
             block=block,
             block_hash=block_hash,
             reuse_block=reuse_block,
             params=[netuid],
         )
-        return cast(Optional[int], getattr(query, "value", query))
+        return query.value
 
     async def blocks_since_last_update(
         self,
@@ -1085,14 +1086,14 @@ class AsyncSubtensor(SubtensorMixin):
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
         block = block or await self.substrate.get_block_number(block_hash)
-        call = await self.get_hyperparameter(
+        call: list[int] = await self.get_hyperparameter(
             param_name="LastUpdate",
             netuid=netuid,
             block=block,
             block_hash=block_hash,
             reuse_block=reuse_block,
         )
-        return None if call is None else (block - int(call[uid]))
+        return None if len(call) == 0 else (block - int(call[uid]))
 
     async def blocks_until_next_epoch(
         self,
@@ -1176,8 +1177,10 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
         bond_map = []
+        uid: int
+        bond: list[tuple[int, int]]
         async for uid, bond in b_map_encoded:
-            if bond is not None:
+            if len(bond) != 0:
                 bond_map.append((uid, bond))
 
         return bond_map
@@ -1206,13 +1209,14 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/subnets/subnet-hyperparameters>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        call = await self.get_hyperparameter(
+        call: Optional[bool] = await self.get_hyperparameter(
             param_name="CommitRevealWeightsEnabled",
             block_hash=block_hash,
             netuid=netuid,
             reuse_block=reuse_block,
         )
-        return True if call is True else False
+        assert call is not None
+        return call
 
     async def difficulty(
         self,
@@ -1220,7 +1224,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[int]:
+    ) -> int:
         """Retrieves the 'Difficulty' hyperparameter for a specified subnet in the Bittensor network.
 
         This parameter determines the computational challenge required for neurons to participate in consensus and
@@ -1245,14 +1249,13 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/miners#miner-registration>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        call = await self.get_hyperparameter(
+        call: Optional[int] = await self.get_hyperparameter(
             param_name="Difficulty",
             netuid=netuid,
             block_hash=block_hash,
             reuse_block=reuse_block,
         )
-        if call is None:
-            return None
+        assert call is not None
         return int(call)
 
     async def does_hotkey_exist(
@@ -1284,19 +1287,13 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/glossary#hotkey>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result = await self.substrate.query(
+        result: ScaleType[str] = await self.substrate.query(
             module="SubtensorModule",
             storage_function="Owner",
             params=[hotkey_ss58],
             block_hash=block_hash,
         )
-        return_val = (
-            False
-            if result is None
-            # not the default key (0x0)
-            else result != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"
-        )
-        return return_val
+        return result.value != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"
 
     async def get_admin_freeze_window(
         self,
@@ -1323,19 +1320,19 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/learn/chain-rate-limits#administrative-freeze-window>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[int] = await self.substrate.query(
             module="SubtensorModule",
             storage_function="AdminFreezeWindow",
             block_hash=block_hash,
         )
-        return cast(int, getattr(query, "value", query))
+        return query.value
 
     async def get_all_subnets_info(
         self,
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> list["SubnetInfo"]:
+    ) -> list[SubnetInfo]:
         """Retrieves detailed information about all subnets within the Bittensor network.
 
         Parameters:
@@ -1410,6 +1407,8 @@ class AsyncSubtensor(SubtensorMixin):
             reuse_block=reuse_block,
         )
         result = {}
+        id_: str
+        value: CommitmentOfResponse
         async for id_, value in query:
             try:
                 result[id_] = decode_metadata(value)
@@ -2242,13 +2241,11 @@ class AsyncSubtensor(SubtensorMixin):
             )
             return ""
 
-        metadata = cast(
-            dict,
-            await self.get_commitment_metadata(
-                netuid, hotkey, block, block_hash, reuse_block
-            ),
+        metadata = await self.get_commitment_metadata(
+            netuid, hotkey, block, block_hash, reuse_block
         )
         try:
+            assert not isinstance(metadata, str)
             return decode_metadata(metadata)
         except Exception as error:
             logging.error(error)
@@ -2261,7 +2258,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Union[str, dict]:
+    ) -> str | CommitmentOfResponse:
         # TODO: how to handle return data? need good example @roman
         """Fetches raw commitment metadata from specific subnet for given hotkey.
 
@@ -2280,15 +2277,17 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/glossary#commit-reveal>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        commit_data = await self.substrate.query(
+        commit_data: ScaleType[
+            Optional[CommitmentOfResponse]
+        ] = await self.substrate.query(
             module="Commitments",
             storage_function="CommitmentOf",
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
         )
-        if commit_data is None:
+        if commit_data.value is None:
             return ""
-        return cast(Union[str, dict], getattr(commit_data, "value", commit_data))
+        return commit_data.value
 
     async def get_crowdloan_constants(
         self,
@@ -2296,7 +2295,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> "CrowdloanConstants":
+    ) -> CrowdloanConstants:
         """Retrieves runtime configuration constants governing crowdloan behavior and limits on the Bittensor blockchain.
 
         If a list of constant names is provided, only those constants will be queried.
@@ -2350,7 +2349,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> dict[str, "Balance"]:
+    ) -> dict[str, Balance]:
         """Retrieves all contributions made to a specific crowdloan campaign.
 
         Returns a mapping of contributor coldkey addresses to their contribution amounts in Rao.
@@ -2380,11 +2379,11 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         result = {}
-
-        if query.records:
-            async for record in query:
-                if record[1]:
-                    result[record[0]] = Balance.from_rao(record[1])
+        contributor: str
+        amount: int
+        async for contributor, amount in query:
+            if amount:
+                result[contributor] = Balance.from_rao(amount)
 
         return result
 
@@ -2394,7 +2393,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional["CrowdloanInfo"]:
+    ) -> Optional[CrowdloanInfo]:
         """Retrieves detailed information about a specific crowdloan campaign.
 
         Parameters:
@@ -2414,13 +2413,13 @@ class AsyncSubtensor(SubtensorMixin):
             - Crowdloans Overview: <https://docs.learnbittensor.org/subnets/crowdloans>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[Optional[CrowdloansResponse]] = await self.substrate.query(
             module="Crowdloan",
             storage_function="Crowdloans",
             params=[crowdloan_id],
             block_hash=block_hash,
         )
-        if not query:
+        if not query.value:
             return None
         return await self._decode_crowdloan_entry(
             crowdloan_id=crowdloan_id, data=query.value, block_hash=block_hash
@@ -2450,13 +2449,12 @@ class AsyncSubtensor(SubtensorMixin):
             - Crowdloan Tutorial: <https://docs.learnbittensor.org/subnets/crowdloans/crowdloans-tutorial#get-the-crowdloan-id>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result = await self.substrate.query(
+        result: ScaleType[int] = await self.substrate.query(
             module="Crowdloan",
             storage_function="NextCrowdloanId",
             block_hash=block_hash,
         )
-        value = getattr(result, "value", result)
-        return int(value or 0)
+        return result.value
 
     async def get_crowdloans(
         self,
@@ -3271,10 +3269,10 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
 
-        if query.value is None:
+        if query.value_object is None:
             return None
 
-        value: bytearray = query.value
+        value: bytearray = query.value_object
 
         public_key_bytes = bytes(value)
 
@@ -3318,10 +3316,11 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
 
-        if query.value is None:
+        if query.value_object is None:
             return None
 
-        public_key_bytes = bytes(query.value_object)
+        value: bytearray = query.value_object
+        public_key_bytes = bytes(value)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:

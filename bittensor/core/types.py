@@ -592,3 +592,27 @@ class PositionResponse(TypedDict):
 class NeuronCertificateResponse(TypedDict):
     public_key: str
     algorithm: int
+
+
+class _CommitmentFields(TypedDict):
+    fields: list[dict[str, str]]
+
+
+class CommitmentOfResponse(TypedDict):
+    deposit: int
+    block: int
+    info: _CommitmentFields
+
+
+class CrowdloansResponse(TypedDict):
+    creator: str
+    deposit: int
+    min_contribution: int
+    end: int
+    cap: int
+    funds_account: str
+    raised: int
+    target_address: str
+    call: Optional[dict]
+    finalized: bool
+    contributors_count: int

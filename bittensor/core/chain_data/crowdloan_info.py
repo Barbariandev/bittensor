@@ -1,7 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from bittensor.utils.balance import Balance
+
+if TYPE_CHECKING:
+    from bittensor.core.types import CrowdloansResponse
 
 
 @dataclass
@@ -42,7 +45,7 @@ class CrowdloanInfo:
     contributors_count: int
 
     @classmethod
-    def from_dict(cls, idx: int, data: dict) -> "CrowdloanInfo":
+    def from_dict(cls, idx: int, data: "CrowdloansResponse") -> "CrowdloanInfo":
         """Returns a CrowdloanInfo object from decoded chain data."""
         return cls(
             id=idx,
