@@ -3686,7 +3686,7 @@ async def test_get_subnet_price(subtensor, mocker):
     fake_price = 29258617
     expected_price = Balance.from_tao(0.029258617)
     mocked_query = mocker.patch.object(
-        subtensor.substrate, "runtime_call", return_value=mocker.Mock(value=fake_price)
+        subtensor.substrate, "runtime_call", return_value=fake_price
     )
 
     # Call
