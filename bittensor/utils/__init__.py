@@ -22,13 +22,12 @@ from scalecodec.utils.ss58 import (
 
 from bittensor.core import settings
 from bittensor.utils.btlogging import logging
-from bittensor.core.types import NeuronCertificateResponse
 from .registration import torch, use_torch
 from .version import check_version, VersionCheckError
 
 if TYPE_CHECKING:
     from bittensor_wallet import Wallet
-    from bittensor.core.types import ExtrinsicResponse
+    from bittensor.core.types import ExtrinsicResponse, NeuronCertificateResponse
 
 # keep save from import analyzer as obvious aliases
 hex_to_ss58 = ss58_encode
@@ -94,7 +93,7 @@ def get_netuid_and_mechid_by_storage_index(storage_index: int) -> tuple[int, int
 
 
 class Certificate(str):
-    def __new__(cls, data: str | NeuronCertificateResponse):
+    def __new__(cls, data: "str | NeuronCertificateResponse"):
         if isinstance(data, dict):
             pubkey: str = data["public_key"]
             pubkey_bytes = bytes.fromhex(pubkey.removeprefix("0x"))

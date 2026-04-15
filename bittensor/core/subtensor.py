@@ -2535,7 +2535,7 @@ class Subtensor(SubtensorMixin):
             module, storage_function, block_hash=block_hash
         ):
             return None
-        result = self.substrate.query(
+        result: ScaleType[Optional[list[int]]] = self.substrate.query(
             module="SubtensorModule",
             storage_function="MechanismEmissionSplit",
             params=[netuid],
@@ -2570,7 +2570,7 @@ class Subtensor(SubtensorMixin):
             module, storage_function, block_hash=block_hash
         ):
             return 1
-        query = self.substrate.query(
+        query: ScaleType[Optional[int]] = self.substrate.query(
             module=module,
             storage_function=storage_function,
             params=[netuid],
@@ -2665,13 +2665,13 @@ class Subtensor(SubtensorMixin):
                 default_value=None,
             )
 
-        if query is None or not hasattr(query, "value") or query.value is None:
+        if query is None:
             logging.error(
                 f"Subnet mechanism {netuid}.{mechid if mechid else 0} does not exist."
             )
             return None
 
-        return MetagraphInfo.from_dict(query.value)
+        return MetagraphInfo.from_dict(query)
 
     def get_mev_shield_current_key(
         self, block: Optional[int] = None
@@ -2693,16 +2693,16 @@ class Subtensor(SubtensorMixin):
             announced a key yet.
         """
         block_hash = self.determine_block_hash(block=block)
-        query = self.substrate.query(
+        query: ScaleType[Optional[bytearray]] = self.substrate.query(
             module="MevShield",
             storage_function="CurrentKey",
             block_hash=block_hash,
         )
 
-        if query is None:
+        if query.value is None:
             return None
 
-        public_key_bytes = bytes(next(iter(query)))
+        public_key_bytes = bytes(query.value_object)
 
         # Validate public_key size for ML-KEM-768
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -2731,16 +2731,16 @@ class Subtensor(SubtensorMixin):
             announced the next key yet.
         """
         block_hash = self.determine_block_hash(block=block)
-        query = self.substrate.query(
+        query: ScaleType[Optional[bytearray]] = self.substrate.query(
             module="MevShield",
             storage_function="NextKey",
             block_hash=block_hash,
         )
 
-        if query is None:
+        if query.value is None:
             return None
 
-        public_key_bytes = bytes(next(iter(query)))
+        public_key_bytes = bytes(query.value_object)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -2772,7 +2772,7 @@ class Subtensor(SubtensorMixin):
             module="SubtensorModule", storage_function="NominatorMinRequiredStake"
         )
 
-        return Balance.from_rao(getattr(result, "value", 0))
+        return Balance.from_rao(result.value or 0)
 
     def get_netuids_for_hotkey(
         self, hotkey_ss58: str, block: Optional[int] = None
@@ -2839,7 +2839,7 @@ class Subtensor(SubtensorMixin):
 
     def get_neuron_for_pubkey_and_subnet(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
-    ) -> Optional["NeuronInfo"]:
+    ) -> NeuronInfo:
         """
         Retrieves information about a neuron based on its public key (hotkey SS58 address) and the specific subnet UID
         (netuid). This function provides detailed neuron information for a particular subnet within the Bittensor
@@ -2863,7 +2863,7 @@ class Subtensor(SubtensorMixin):
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
         )
-        if (uid := getattr(uid_query, "value", None)) is None:
+        if (uid := uid_query.value) is None:
             return NeuronInfo.get_null_neuron()
 
         return self.neuron_for_uid(
@@ -2928,7 +2928,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=block_hash,
         )
-        return owned_hotkeys.value
+        return owned_hotkeys.value or []
 
     def get_parents(
         self, hotkey_ss58: str, netuid: int, block: Optional[int] = None
@@ -2955,7 +2955,7 @@ class Subtensor(SubtensorMixin):
             params=[hotkey_ss58, netuid],
             block_hash=self.determine_block_hash(block),
         )
-        if parents:
+        if parents.value:
             formatted_parents = []
             for proportion, formatted_child in parents.value:
                 # Convert U64 to int
@@ -3057,14 +3057,13 @@ class Subtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/proxies>
         """
         block_hash = self.determine_block_hash(block)
-        query = self.substrate.query(
+        query: ScaleType[tuple[list[dict], int]] = self.substrate.query(
             module="Proxy",
             storage_function="Announcements",
             params=[delegate_account_ss58],
             block_hash=block_hash,
         )
-        query_value = getattr(query, "value", query)
-        return ProxyAnnouncementInfo.from_dict(cast(list[Any], query_value)[0])
+        return ProxyAnnouncementInfo.from_dict(query.value)
 
     def get_proxy_announcements(
         self,

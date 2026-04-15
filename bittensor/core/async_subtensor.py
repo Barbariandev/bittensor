@@ -3095,15 +3095,15 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/subnets/understanding-multiple-mech-subnets>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result = await self._query_with_fallback(
+        result: ScaleType[Optional[list[int]]] = await self._query_with_fallback(
             ("SubtensorModule", "MechanismEmissionSplit", [netuid]),
             block_hash=block_hash,
             default_value=None,
         )
-        if result is None or not hasattr(result, "value"):
+        if result.value is None:
             return None
-
-        return [round(i / sum(result.value) * 100) for i in result.value]
+        total = sum(result.value)
+        return [round(i / total * 100) for i in result.value]
 
     async def get_mechanism_count(
         self,
@@ -3127,12 +3127,12 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/subnets/understanding-multiple-mech-subnets>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self._query_with_fallback(
+        query: ScaleType[Optional[int]] = await self._query_with_fallback(
             ("SubtensorModule", "MechanismCountCurrent", [netuid]),
             block_hash=block_hash,
             default_value=None,
         )
-        return getattr(query, "value", 1)
+        return query.value or 1
 
     async def get_metagraph_info(
         self,
@@ -3228,13 +3228,13 @@ class AsyncSubtensor(SubtensorMixin):
                 default_value=None,
             )
 
-        if getattr(query, "value", None) is None:
+        if query is None:
             logging.error(
                 f"Subnet mechanism {netuid}.{mechid if mechid else 0} does not exist."
             )
             return None
 
-        return MetagraphInfo.from_dict(query.value)
+        return MetagraphInfo.from_dict(query)
 
     async def get_mev_shield_current_key(
         self,
@@ -3261,16 +3261,16 @@ class AsyncSubtensor(SubtensorMixin):
             announced a key yet.
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[Optional[bytearray]] = await self.substrate.query(
             module="MevShield",
             storage_function="CurrentKey",
             block_hash=block_hash,
         )
 
-        if query is None:
+        if query.value is None:
             return None
 
-        public_key_bytes = bytes(next(iter(query)))
+        public_key_bytes = bytes(query.value_object)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -3306,16 +3306,16 @@ class AsyncSubtensor(SubtensorMixin):
             announced the next key yet.
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[Optional[bytearray]] = await self.substrate.query(
             module="MevShield",
             storage_function="NextKey",
             block_hash=block_hash,
         )
 
-        if query is None:
+        if query.value is None:
             return None
 
-        public_key_bytes = bytes(next(iter(query)))
+        public_key_bytes = bytes(query.value_object)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -3347,7 +3347,7 @@ class AsyncSubtensor(SubtensorMixin):
             module="SubtensorModule", storage_function="NominatorMinRequiredStake"
         )
 
-        return Balance.from_rao(getattr(result, "value", 0))
+        return Balance.from_rao(result.value or 0)
 
     async def get_netuids_for_hotkey(
         self,
@@ -3436,7 +3436,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> "NeuronInfo":
+    ) -> NeuronInfo:
         """
         Retrieves information about a neuron based on its public key (hotkey SS58 address) and the specific subnet UID
         (netuid). This function provides detailed neuron information for a particular subnet within the Bittensor
@@ -3462,7 +3462,7 @@ class AsyncSubtensor(SubtensorMixin):
             params=[netuid, hotkey_ss58],
             block_hash=block_hash,
         )
-        if (uid := getattr(uid_query, "value", None)) is None:
+        if (uid := uid_query.value) is None:
             return NeuronInfo.get_null_neuron()
         else:
             return await self.neuron_for_uid(
@@ -3540,7 +3540,7 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
 
-        return owned_hotkeys or []
+        return owned_hotkeys.value or []
 
     async def get_parents(
         self,
@@ -3575,7 +3575,7 @@ class AsyncSubtensor(SubtensorMixin):
             params=[hotkey_ss58, netuid],
             block_hash=block_hash,
         )
-        if parents:
+        if parents.value:
             formatted_parents = []
             for proportion, formatted_child in parents.value:
                 # Convert U64 to int
@@ -3692,14 +3692,13 @@ class AsyncSubtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/proxies>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query = await self.substrate.query(
+        query: ScaleType[tuple[list[dict], int]] = await self.substrate.query(
             module="Proxy",
             storage_function="Announcements",
             params=[delegate_account_ss58],
             block_hash=block_hash,
         )
-        query_value = getattr(query, "value", query)
-        return ProxyAnnouncementInfo.from_dict(cast(list[Any], query_value)[0])
+        return ProxyAnnouncementInfo.from_dict(query.value)
 
     async def get_proxy_announcements(
         self,

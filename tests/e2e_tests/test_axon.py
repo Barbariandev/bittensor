@@ -82,7 +82,6 @@ def test_axon(subtensor, templates, alice_wallet):
     )
 
 
-@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_axon_async(async_subtensor, templates, alice_wallet):
     """
