@@ -4509,12 +4509,12 @@ async def test_get_crowdloan_constants(mocker, subtensor):
 async def test_get_crowdloan_contributions(mocker, subtensor):
     """Tests subtensor `get_crowdloan_contributions` method."""
     # Preps
-    fake_hk_array = mocker.Mock(spec=list)
+    fake_hk = mocker.Mock(spec=str)
     fake_contribution = mocker.Mock(value=mocker.Mock(spec=Balance))
     fake_crowdloan_id = mocker.Mock(spec=int)
     mocked_determine_block_hash = mocker.patch.object(subtensor, "determine_block_hash")
 
-    records = [(fake_hk_array, fake_contribution)]
+    records = [(fake_hk, fake_contribution)]
     fake_result = mocker.AsyncMock(autospec=list)
     fake_result.records = records
     fake_result.__aiter__.return_value = iter(records)
@@ -4536,7 +4536,7 @@ async def test_get_crowdloan_contributions(mocker, subtensor):
         params=[fake_crowdloan_id],
         block_hash=mocked_determine_block_hash.return_value,
     )
-    assert result == {fake_hk_array: mocked_from_rao.return_value}
+    assert result == {fake_hk: mocked_from_rao.return_value}
 
 
 @pytest.mark.parametrize(
