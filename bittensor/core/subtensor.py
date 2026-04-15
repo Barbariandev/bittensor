@@ -3215,7 +3215,7 @@ class Subtensor(SubtensorMixin):
             params=[netuid, hotkey_ss58],
             block=block,
         )
-        if query is None:
+        if query.value is None:
             return None
         return tuple(decode_revealed_commitment(pair) for pair in query)
 
@@ -3223,7 +3223,7 @@ class Subtensor(SubtensorMixin):
         self,
         coldkey_ss58: str,
         block: Optional[int] = None,
-    ) -> Union[str, dict]:
+    ) -> str | dict[str, dict[str, list[int]]]:
         """Return the configured root claim type for a given coldkey.
 
         The root claim type controls how dividends from staking to the Root Subnet (subnet 0) are processed when they
@@ -3253,24 +3253,7 @@ class Subtensor(SubtensorMixin):
             params=[coldkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        query_value = getattr(query, "value", query)
-        claim_type = cast(dict[str, Any], query_value)
-        # Query returns enum as dict: {"Swap": ()} or {"Keep": ()} or {"KeepSubnets": {"subnets": [1, 2, 3]}}
-        variant_name = next(iter(claim_type.keys()))
-        variant_value = claim_type[variant_name]
-
-        # For simple variants (Swap, Keep), value is empty tuple, return string
-        if not variant_value or variant_value == ():
-            return variant_name
-
-        # For KeepSubnets, value contains the data, return full dict structure
-        if isinstance(variant_value, dict) and "subnets" in variant_value:
-            subnets_raw = variant_value["subnets"]
-            subnets = list(subnets_raw[0])
-
-            return {variant_name: {"subnets": subnets}}
-
-        return {variant_name: variant_value}
+        return query.value
 
     def get_root_alpha_dividends_per_subnet(
         self,
@@ -3291,14 +3274,13 @@ class Subtensor(SubtensorMixin):
         Returns:
             Balance: The root alpha dividends for this hotkey on this subnet in Rao, with unit set to netuid.
         """
-        query = self.substrate.query(
+        query: ScaleType[int] = self.substrate.query(
             module="SubtensorModule",
             storage_function="RootAlphaDividendsPerSubnet",
             params=[netuid, hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        value = getattr(query, "value", query)
-        return Balance.from_rao(cast(int, value)).set_unit(netuid=netuid)
+        return Balance.from_rao(query.value, netuid=netuid)
 
     def get_root_claimable_rate(
         self,
@@ -3349,14 +3331,15 @@ class Subtensor(SubtensorMixin):
         Notes:
             - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
         """
-        query = self.substrate.query(
+        query: ScaleType[list[tuple[int, FixedPoint]]] = self.substrate.query(
             module="SubtensorModule",
             storage_function="RootClaimable",
             params=[hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        bits_list = next(iter(cast(list[list[tuple[int, FixedPoint]]], query.value)))
-        return {bits[0]: fixed_to_float(bits[1], frac_bits=32) for bits in bits_list}
+        return {
+            netuid: fixed_to_float(bits, frac_bits=32) for (netuid, bits) in query.value
+        }
 
     def get_root_claimable_stake(
         self,
@@ -3431,14 +3414,13 @@ class Subtensor(SubtensorMixin):
         Notes:
             - See: <https://docs.learnbittensor.org/staking-and-delegation/root-claims/managing-root-claims>
         """
-        query = self.substrate.query(
+        query: ScaleType[int] = self.substrate.query(
             module="SubtensorModule",
             storage_function="RootClaimed",
             params=[netuid, hotkey_ss58, coldkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        value = getattr(query, "value", query)
-        return Balance.from_rao(cast(int, value)).set_unit(netuid=netuid)
+        return Balance.from_rao(query.value, netuid=netuid)
 
     def get_stake(
         self,
@@ -3507,7 +3489,7 @@ class Subtensor(SubtensorMixin):
 
     def get_stake_info_for_coldkey(
         self, coldkey_ss58: str, block: Optional[int] = None
-    ) -> list["StakeInfo"]:
+    ) -> list[StakeInfo]:
         """
         Retrieves the stake information for a given coldkey.
 
@@ -3531,7 +3513,7 @@ class Subtensor(SubtensorMixin):
 
     def get_stake_info_for_coldkeys(
         self, coldkey_ss58s: list[str], block: Optional[int] = None
-    ) -> dict[str, list["StakeInfo"]]:
+    ) -> dict[str, list[StakeInfo]]:
         """
         Retrieves the stake information for multiple coldkeys.
 
@@ -3568,10 +3550,7 @@ class Subtensor(SubtensorMixin):
         hotkey_alpha_query = self.query_subtensor(
             name="TotalHotkeyAlpha", params=[hotkey_ss58, netuid], block=block
         )
-        assert hotkey_alpha_query is not None
-        balance = Balance.from_rao(hotkey_alpha_query.value)
-        balance.set_unit(netuid=netuid)
-        return balance
+        return Balance.from_rao(hotkey_alpha_query.value, netuid=netuid)
 
     get_hotkey_stake = get_stake_for_hotkey
 
