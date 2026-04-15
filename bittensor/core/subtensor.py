@@ -2288,7 +2288,10 @@ class Subtensor(SubtensorMixin):
             params=[hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        exists = self.does_hotkey_exist(hotkey_ss58, block=block)
+        if hk_owner.value != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM":
+            exists = self.does_hotkey_exist(hotkey_ss58, block=block)
+        else:
+            exists = False
         hotkey_owner = hk_owner.value if exists else None
         return hotkey_owner
 

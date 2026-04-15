@@ -2807,7 +2807,10 @@ class AsyncSubtensor(SubtensorMixin):
             params=[hotkey_ss58],
             block_hash=block_hash,
         )
-        exists = await self.does_hotkey_exist(hotkey_ss58, block_hash=block_hash)
+        if hk_owner.value != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM":
+            exists = await self.does_hotkey_exist(hotkey_ss58, block_hash=block_hash)
+        else:
+            exists = False
         hotkey_owner = hk_owner.value if exists else None
         return hotkey_owner
 
@@ -5587,7 +5590,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         identity_data: Optional[dict[str, Any]] = identity_info.value
-        if identity_info is None:
+        if identity_data is None:
             return None
         return ChainIdentity.from_dict(decode_hex_identity_dict(identity_data))
 
