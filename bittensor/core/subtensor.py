@@ -2037,11 +2037,9 @@ class Subtensor(SubtensorMixin):
         )
 
         crowdloans = []
-
-        for c_id, value_obj in getattr(query, "records", []):
-            data = value_obj.value
-            if not data:
-                continue
+        c_id: int
+        data: CrowdloansResponse
+        for c_id, data in query:
             crowdloans.append(
                 self._decode_crowdloan_entry(
                     crowdloan_id=c_id, data=data, block_hash=block_hash
@@ -2169,7 +2167,7 @@ class Subtensor(SubtensorMixin):
 
         return DelegatedInfo.list_from_dicts(result)
 
-    def get_delegates(self, block: Optional[int] = None) -> list["DelegateInfo"]:
+    def get_delegates(self, block: Optional[int] = None) -> list[DelegateInfo]:
         """Fetches all delegates registered on the chain.
 
         Delegates are validators that accept stake from other TAO holders (nominators/delegators). This method
@@ -2197,7 +2195,7 @@ class Subtensor(SubtensorMixin):
         else:
             return []
 
-    def get_existential_deposit(self, block: Optional[int] = None) -> Optional[Balance]:
+    def get_existential_deposit(self, block: Optional[int] = None) -> Balance:
         """Retrieves the existential deposit amount for the Bittensor blockchain.
 
         The existential deposit is the minimum amount of TAO required for an account to exist on the blockchain.
@@ -2213,7 +2211,7 @@ class Subtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/glossary#existential-deposit>
         """
-        result = self.substrate.get_constant(
+        result: Optional[ScaleType[int]] = self.substrate.get_constant(
             module_name="Balances",
             constant_name="ExistentialDeposit",
             block_hash=self.determine_block_hash(block),
@@ -2222,7 +2220,7 @@ class Subtensor(SubtensorMixin):
         if result is None:
             raise Exception("Unable to retrieve existential deposit amount.")
 
-        return Balance.from_rao(getattr(result, "value", 0))
+        return Balance.from_rao(result.value)
 
     def get_ema_tao_inflow(
         self,
@@ -2266,6 +2264,7 @@ class Subtensor(SubtensorMixin):
 
         block_updated, tao_bits = query.value
         ema_value = int(fixed_to_float(tao_bits))
+        # TODO verify this from rao, seems like we're just rounding down
         return block_updated, Balance.from_rao(ema_value)
 
     def get_hotkey_owner(
@@ -2283,21 +2282,19 @@ class Subtensor(SubtensorMixin):
         Returns:
             The SS58 address of the owner if the hotkey exists, or `None` if it doesn't.
         """
-        hk_owner_query = self.substrate.query(
+        hk_owner: ScaleType[str] = self.substrate.query(
             module="SubtensorModule",
             storage_function="Owner",
             params=[hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
-        exists = False
-        if hk_owner_query:
-            exists = self.does_hotkey_exist(hotkey_ss58, block=block)
-        hotkey_owner = hk_owner_query if exists else None
-        return cast(Optional[str], getattr(hotkey_owner, "value", hotkey_owner))
+        exists = self.does_hotkey_exist(hotkey_ss58, block=block)
+        hotkey_owner = hk_owner.value if exists else None
+        return hotkey_owner
 
     def get_last_bonds_reset(
         self, netuid: int, hotkey_ss58: str, block: Optional[int] = None
-    ):
+    ) -> ScaleType[Optional[int]]:
         """Retrieves the block number when bonds were last reset for a specific hotkey on a subnet.
 
         Parameters:
@@ -2306,18 +2303,20 @@ class Subtensor(SubtensorMixin):
             block: The block number to query. If `None`, queries the current chain head.
 
         Returns:
-            The block number when bonds were last reset, or `None` if no bonds reset has occurred.
+            A ScaleType object containing the block number when bonds were last reset, or `None` if no bonds reset
+            has occurred.
 
         Notes:
             - <https://docs.learnbittensor.org/resources/glossary#validator-miner-bonds>
             - <https://docs.learnbittensor.org/resources/glossary#commit-reveal>
         """
-        return self.substrate.query(
+        block_: ScaleType[Optional[int]] = self.substrate.query(
             module="Commitments",
             storage_function="LastBondsReset",
             params=[netuid, hotkey_ss58],
             block_hash=self.determine_block_hash(block),
         )
+        return block_
 
     def get_last_commitment_bonds_reset_block(
         self,
@@ -2346,7 +2345,7 @@ class Subtensor(SubtensorMixin):
             )
             return None
         block_data = self.get_last_bonds_reset(netuid, hotkey_ss58, block)
-        return getattr(block_data, "value", None)
+        return block_data.value
 
     def get_liquidity_list(
         self,
@@ -2448,7 +2447,7 @@ class Subtensor(SubtensorMixin):
         )
         # iterator with just the values
         ticks = iter([x[1] for x in ticks_query])
-        positions = []
+        positions: list[LiquidityPosition] = []
         for position, tick_low_idx, tick_high_idx in positions_values:
             tick_low = next(ticks)
             tick_high = next(ticks)

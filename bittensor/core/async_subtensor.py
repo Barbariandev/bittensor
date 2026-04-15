@@ -528,7 +528,7 @@ class AsyncSubtensor(SubtensorMixin):
         *args: tuple[str, str, Optional[list[Any]]],
         block_hash: Optional[str] = None,
         default_value: Any = ValueError,
-    ):
+    ) -> ScaleType[Any] | Any:
         """
         Queries the subtensor node with a given set of args, falling back to the next group if the method
         does not exist at the given block. This method exists to support backwards compatibility for blocks.
@@ -2490,17 +2490,14 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         crowdloans = []
-
-        if query.records:
-            async for c_id, value_obj in query:
-                data = value_obj
-                if not data:
-                    continue
-                crowdloans.append(
-                    await self._decode_crowdloan_entry(
-                        crowdloan_id=c_id, data=data, block_hash=block_hash
-                    )
+        c_id: int
+        data: CrowdloansResponse
+        async for c_id, data in query:
+            crowdloans.append(
+                await self._decode_crowdloan_entry(
+                    crowdloan_id=c_id, data=data, block_hash=block_hash
                 )
+            )
 
         return crowdloans
 
@@ -2608,14 +2605,14 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result = await self.query_subtensor(
+        result: ScaleType[int] = await self.query_subtensor(
             name="Delegates",
             block_hash=block_hash,
             reuse_block=reuse_block,
             params=[hotkey_ss58],
         )
 
-        return u16_normalized_float(result.value)  # type: ignore
+        return u16_normalized_float(result.value)
 
     async def get_delegated(
         self,
@@ -2721,7 +2718,7 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/glossary#existential-deposit>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result = await self.substrate.get_constant(
+        result: Optional[ScaleType[int]] = await self.substrate.get_constant(
             module_name="Balances",
             constant_name="ExistentialDeposit",
             block_hash=block_hash,
@@ -2730,7 +2727,7 @@ class AsyncSubtensor(SubtensorMixin):
         if result is None:
             raise Exception("Unable to retrieve existential deposit amount.")
 
-        return Balance.from_rao(getattr(result, "value", 0))
+        return Balance.from_rao(result.value)
 
     async def get_ema_tao_inflow(
         self,
@@ -2761,7 +2758,7 @@ class AsyncSubtensor(SubtensorMixin):
             - EMA smoothing: <https://docs.learnbittensor.org/learn/ema>
         """
         block_hash = await self.determine_block_hash(block)
-        query = await self.substrate.query(
+        query: ScaleType[Optional[tuple[int, FixedPoint]]] = await self.substrate.query(
             module="SubtensorModule",
             storage_function="SubnetEmaTaoFlow",
             params=[netuid],
@@ -2769,11 +2766,12 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         # sn0 doesn't have EmaTaoInflow
-        if query is None:
+        if query.value is None:
             return None
 
         block_updated, tao_bits = query.value
         ema_value = int(fixed_to_float(tao_bits))
+        # TODO verify this from rao, seems like we're just rounding down
         return block_updated, Balance.from_rao(ema_value)
 
     async def get_hotkey_owner(
@@ -2803,17 +2801,15 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/glossary#neuron>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        hk_owner_query = await self.substrate.query(
+        hk_owner: ScaleType[str] = await self.substrate.query(
             module="SubtensorModule",
             storage_function="Owner",
             params=[hotkey_ss58],
             block_hash=block_hash,
         )
-        exists = False
-        if hk_owner_query:
-            exists = await self.does_hotkey_exist(hotkey_ss58, block_hash=block_hash)
-        hotkey_owner = hk_owner_query if exists else None
-        return cast(Optional[str], getattr(hotkey_owner, "value", hotkey_owner))
+        exists = await self.does_hotkey_exist(hotkey_ss58, block_hash=block_hash)
+        hotkey_owner = hk_owner.value if exists else None
+        return hotkey_owner
 
     async def get_last_bonds_reset(
         self,
@@ -2822,7 +2818,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> ScaleType[int]:
+    ) -> ScaleType[Optional[int]]:
         """Retrieves the block number when bonds were last reset for a specific hotkey on a subnet.
 
         Parameters:
@@ -2833,14 +2829,15 @@ class AsyncSubtensor(SubtensorMixin):
             reuse_block: Whether to use the last-used block. Do not set if using `block_hash` or `block`.
 
         Returns:
-            The block number when bonds were last reset, or `None` if no bonds reset has occurred.
+            A ScaleType object containing the block number when bonds were last reset, or `None` if no bonds reset
+            has occurred.
 
         Notes:
             - <https://docs.learnbittensor.org/resources/glossary#validator-miner-bonds>
             - <https://docs.learnbittensor.org/resources/glossary#commit-reveal>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        block = await self.substrate.query(
+        block: ScaleType[Optional[int]] = await self.substrate.query(
             module="Commitments",
             storage_function="LastBondsReset",
             params=[netuid, hotkey_ss58],
@@ -2881,7 +2878,7 @@ class AsyncSubtensor(SubtensorMixin):
         block_data = await self.get_last_bonds_reset(
             netuid, hotkey, block, block_hash, reuse_block
         )
-        return getattr(block_data, "value", None)
+        return block_data.value
 
     async def get_liquidity_list(
         self,
@@ -3000,7 +2997,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
         # iterator with just the values
         ticks = iter([x[1] for x in ticks_query])
-        positions = []
+        positions: list[LiquidityPosition] = []
         for position, tick_low_idx, tick_high_idx in positions_values:
             tick_low = next(ticks)
             tick_high = next(ticks)
@@ -3056,19 +3053,15 @@ class AsyncSubtensor(SubtensorMixin):
 
             positions.append(
                 LiquidityPosition(
-                    **{
-                        "id": position.get("id"),
-                        "price_low": Balance.from_tao(
-                            tick_to_price(position.get("tick_low"))
-                        ),
-                        "price_high": Balance.from_tao(
-                            tick_to_price(position.get("tick_high"))
-                        ),
-                        "liquidity": Balance.from_rao(position.get("liquidity")),
-                        "fees_tao": fees_tao,
-                        "fees_alpha": fees_alpha,
-                        "netuid": position.get("netuid"),
-                    }
+                    id=position.get("id"),
+                    price_low=Balance.from_tao(tick_to_price(position.get("tick_low"))),
+                    price_high=Balance.from_tao(
+                        tick_to_price(position.get("tick_high"))
+                    ),
+                    liquidity=Balance.from_rao(position.get("liquidity")),
+                    fees_tao=fees_tao,
+                    fees_alpha=fees_alpha,
+                    netuid=position.get("netuid"),
                 )
             )
 
@@ -3097,12 +3090,14 @@ class AsyncSubtensor(SubtensorMixin):
             - <https://docs.learnbittensor.org/subnets/understanding-multiple-mech-subnets>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        result: ScaleType[Optional[list[int]]] = await self._query_with_fallback(
+        result: Optional[
+            ScaleType[Optional[list[int]]]
+        ] = await self._query_with_fallback(
             ("SubtensorModule", "MechanismEmissionSplit", [netuid]),
             block_hash=block_hash,
             default_value=None,
         )
-        if result.value is None:
+        if result is None or result.value is None:
             return None
         total = sum(result.value)
         return [round(i / total * 100) for i in result.value]
