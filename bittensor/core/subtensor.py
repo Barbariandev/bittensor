@@ -396,7 +396,7 @@ class Subtensor(SubtensorMixin):
         runtime = self.substrate.init_runtime(block_hash=block_hash)
         if runtime.metadata_v15 is not None:
             try:
-                _ = runtime.runtime_api_map[method]
+                _ = runtime.runtime_api_map[api][method]
                 return True
             except KeyError:
                 return False
