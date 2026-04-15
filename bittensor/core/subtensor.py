@@ -2804,6 +2804,8 @@ class Subtensor(SubtensorMixin):
             block_hash=self.determine_block_hash(block),
         )
         netuids = []
+        netuid: int
+        is_member: bool
         if result.records:
             for netuid, is_member in result:
                 if is_member:
@@ -2838,10 +2840,7 @@ class Subtensor(SubtensorMixin):
         )
         certificate: Optional[str | NeuronCertificateResponse] = certificate_query.value
         if certificate is not None:
-            try:
-                return Certificate(certificate)
-            except AttributeError:
-                return None
+            return Certificate(certificate)
         return None
 
     def get_neuron_for_pubkey_and_subnet(

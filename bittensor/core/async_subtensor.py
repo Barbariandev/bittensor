@@ -3326,7 +3326,7 @@ class AsyncSubtensor(SubtensorMixin):
 
         return public_key_bytes
 
-    async def get_minimum_required_stake(self):
+    async def get_minimum_required_stake(self) -> Balance:
         """Returns the minimum required stake threshold for nominator cleanup operations.
 
         This threshold is used ONLY for cleanup after unstaking operations. If a nominator's remaining stake
@@ -3379,6 +3379,8 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
         )
         netuids = []
+        netuid: int
+        is_member: bool
         if result.records:
             async for netuid, is_member in result:
                 if is_member:
@@ -3423,10 +3425,7 @@ class AsyncSubtensor(SubtensorMixin):
         )
         certificate: Optional[NeuronCertificateResponse] = certificate_query.value
         if certificate is not None:
-            try:
-                return Certificate(certificate)
-            except AttributeError:
-                return None
+            return Certificate(certificate)
         return None
 
     async def get_neuron_for_pubkey_and_subnet(
