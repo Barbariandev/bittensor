@@ -1180,8 +1180,7 @@ class AsyncSubtensor(SubtensorMixin):
         uid: int
         bond: list[tuple[int, int]]
         async for uid, bond in b_map_encoded:
-            if len(bond) != 0:
-                bond_map.append((uid, bond))
+            bond_map.append((uid, bond))
 
         return bond_map
 
@@ -4622,7 +4621,7 @@ class AsyncSubtensor(SubtensorMixin):
             params=[netuid],
             block_hash=block_hash,
         )
-        price_rao = call.value
+        price_rao = call
         return Balance.from_rao(price_rao)
 
     async def get_subnet_prices(

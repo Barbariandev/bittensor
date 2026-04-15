@@ -960,8 +960,7 @@ class Subtensor(SubtensorMixin):
         uid: int
         bond: list[tuple[int, int]]
         for uid, bond in b_map_encoded:
-            if len(bond) != 0:
-                bond_map.append((uid, bond))
+            bond_map.append((uid, bond))
 
         return bond_map
 

@@ -238,7 +238,7 @@ class ProxyInfo:
             See: <https://docs.learnbittensor.org/keys/proxies>
         """
         # proxies data is always in that path
-        proxies = query.value[0][0]
+        proxies = query.value[0]
         # balance data is always in that path
         balance = query.value[1]
         return cls.from_tuple(proxies), Balance.from_rao(balance)

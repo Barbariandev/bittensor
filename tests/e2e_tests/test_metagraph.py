@@ -1137,8 +1137,8 @@ def test_metagraph_info_with_indexes(subtensor, alice_wallet, bob_wallet):
         name="omron",
         owner_hotkey=alice_wallet.hotkey.ss58_address,
         owner_coldkey=alice_wallet.coldkey.ss58_address,
-        active=(True,),
-        axons=(
+        active=[True],
+        axons=[
             {
                 "block": 0,
                 "ip": 0,
@@ -1149,7 +1149,7 @@ def test_metagraph_info_with_indexes(subtensor, alice_wallet, bob_wallet):
                 "protocol": 0,
                 "version": 0,
             },
-        ),
+        ],
         symbol=None,
         identity=None,
         network_registered_at=None,
@@ -1240,8 +1240,8 @@ def test_metagraph_info_with_indexes(subtensor, alice_wallet, bob_wallet):
         name="omron",
         owner_hotkey=alice_wallet.hotkey.ss58_address,
         owner_coldkey=alice_wallet.coldkey.ss58_address,
-        active=(True, True),
-        axons=(
+        active=[True, True],
+        axons=[
             {
                 "block": 0,
                 "ip": 0,
@@ -1262,7 +1262,7 @@ def test_metagraph_info_with_indexes(subtensor, alice_wallet, bob_wallet):
                 "protocol": 0,
                 "version": 0,
             },
-        ),
+        ],
         symbol=None,
         identity=None,
         network_registered_at=None,
@@ -1366,8 +1366,8 @@ async def test_metagraph_info_with_indexes_async(
         name="omron",
         owner_hotkey=alice_wallet.hotkey.ss58_address,
         owner_coldkey=alice_wallet.coldkey.ss58_address,
-        active=(True,),
-        axons=(
+        active=[True],
+        axons=[
             {
                 "block": 0,
                 "ip": 0,
@@ -1378,7 +1378,7 @@ async def test_metagraph_info_with_indexes_async(
                 "protocol": 0,
                 "version": 0,
             },
-        ),
+        ],
         symbol=None,
         identity=None,
         network_registered_at=None,
@@ -1471,8 +1471,8 @@ async def test_metagraph_info_with_indexes_async(
         name="omron",
         owner_hotkey=alice_wallet.hotkey.ss58_address,
         owner_coldkey=alice_wallet.coldkey.ss58_address,
-        active=(True, True),
-        axons=(
+        active=[True, True],
+        axons=[
             {
                 "block": 0,
                 "ip": 0,
@@ -1493,7 +1493,7 @@ async def test_metagraph_info_with_indexes_async(
                 "protocol": 0,
                 "version": 0,
             },
-        ),
+        ],
         symbol=None,
         identity=None,
         network_registered_at=None,
