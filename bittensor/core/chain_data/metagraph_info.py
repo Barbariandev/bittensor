@@ -10,6 +10,7 @@ from bittensor.utils import (
     get_netuid_and_mechid_by_storage_index,
     u64_normalized_float as u64tf,
     u16_normalized_float as u16tf,
+    deprecated_message,
 )
 from bittensor.utils.balance import Balance, fixed_to_float
 
@@ -50,6 +51,9 @@ def process_nested(
     data: Union[tuple, dict], chr_transform
 ) -> Optional[Union[list, dict]]:
     """Processes nested data structures by applying a transformation function to their elements."""
+    deprecated_message(
+        "This function is deprecated as it is no longer needed with the new decoding."
+    )
     if isinstance(data, (list, tuple)):
         if len(data) > 0:
             return [
@@ -191,11 +195,6 @@ class MetagraphInfo(InfoBase):
 
         if decoded.get("identities") is not None:
             ii_list.append("identities")
-
-        for key in ii_list:
-            raw_data = decoded.get(key)
-            processed = process_nested(raw_data, _chr_str)
-            decoded.update({key: processed})
 
         return cls(
             # Subnet index
