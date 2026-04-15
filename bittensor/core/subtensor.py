@@ -4598,14 +4598,14 @@ class Subtensor(SubtensorMixin):
         """
         block_hash = self.determine_block_hash(block=block)
 
-        query = self.substrate.runtime_call(
+        decoded: Optional[dict] = self.substrate.runtime_call(
             api="SubnetInfoRuntimeApi",
             method="get_dynamic_info",
             params=[netuid],
             block_hash=block_hash,
         )
 
-        if isinstance(decoded := query.decode(), dict):
+        if isinstance(decoded, dict):
             try:
                 price = self.get_subnet_price(netuid=netuid, block=block)
             except (SubstrateRequestException, ValueError):
