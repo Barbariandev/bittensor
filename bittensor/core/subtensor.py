@@ -11,7 +11,7 @@ from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec.base import ScaleType
-from scalecodec.utils.math import FixedPoint
+from scalecodec.utils.math import FixedPoint, fixed_to_decimal
 
 from bittensor.core.axon import Axon
 from bittensor.core.chain_data import (
@@ -2702,7 +2702,9 @@ class Subtensor(SubtensorMixin):
         if query.value is None:
             return None
 
-        public_key_bytes = bytes(query.value_object)
+        value: bytearray = query.value
+
+        public_key_bytes = bytes(value)
 
         # Validate public_key size for ML-KEM-768
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -2740,7 +2742,9 @@ class Subtensor(SubtensorMixin):
         if query.value is None:
             return None
 
-        public_key_bytes = bytes(query.value_object)
+        value: bytearray = query.value
+
+        public_key_bytes = bytes(value)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -2829,7 +2833,7 @@ class Subtensor(SubtensorMixin):
                 params=[netuid, hotkey_ss58],
             )
         )
-        certificate: Optional[NeuronCertificateResponse] = certificate_query.value
+        certificate: Optional[str | NeuronCertificateResponse] = certificate_query.value
         if certificate is not None:
             try:
                 return Certificate(certificate)
@@ -3819,10 +3823,10 @@ class Subtensor(SubtensorMixin):
         )
 
         prices = {}
-        for id_, current_sqrt_price in current_sqrt_prices:
-            current_sqrt_price = fixed_to_float(current_sqrt_price)
+        for id_, current_sqrt_price_bits in current_sqrt_prices:
+            current_sqrt_price = fixed_to_decimal(current_sqrt_price_bits)
             current_price = current_sqrt_price * current_sqrt_price
-            current_price_in_tao = Balance.from_rao(int(current_price * 1e9))
+            current_price_in_tao = Balance.from_tao(float(current_price))
             prices.update({id_: current_price_in_tao})
 
         # SN0 price is always 1 TAO
@@ -4025,7 +4029,7 @@ class Subtensor(SubtensorMixin):
 
     def get_vote_data(
         self, proposal_hash: str, block: Optional[int] = None
-    ) -> Optional["ProposalVoteData"]:
+    ) -> Optional[ProposalVoteData]:
         # TODO: is this all deprecated? Didn't subtensor senate stuff get removed?
         """
         Retrieves the voting data for a specific proposal on the Bittensor blockchain. This data includes information
@@ -4048,7 +4052,7 @@ class Subtensor(SubtensorMixin):
             block_hash=self.determine_block_hash(block),
         )
 
-        if vote_data is None:
+        if vote_data.value is None:
             return None
 
         return ProposalVoteData.from_dict(vote_data.value)

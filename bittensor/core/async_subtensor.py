@@ -13,7 +13,7 @@ from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
 from scalecodec import GenericCall
 from scalecodec.base import ScaleType
-from scalecodec.utils.math import FixedPoint
+from scalecodec.utils.math import FixedPoint, fixed_to_decimal
 
 from bittensor.core.chain_data import (
     ColdkeySwapAnnouncementInfo,
@@ -1007,14 +1007,18 @@ class AsyncSubtensor(SubtensorMixin):
         if not block_hash and reuse_block:
             block_hash = self.substrate.last_block_hash
 
-        query = await self.substrate.runtime_call(
-            api="SubnetInfoRuntimeApi",
-            method="get_all_dynamic_info",
-            block_hash=block_hash,
-        )
-        subnet_prices = await self.get_subnet_prices(block_hash=block_hash)
+        decoded: list[dict[str, Any]]
+        subnet_prices: dict[int, Balance]
 
-        decoded = query.decode()
+        decoded, subnet_prices = await asyncio.gather(
+            self.substrate.runtime_call(
+                api="SubnetInfoRuntimeApi",
+                method="get_all_dynamic_info",
+                block_hash=block_hash,
+            ),
+            self.get_subnet_prices(block_hash=block_hash),
+            return_exceptions=True,
+        )
 
         if not isinstance(subnet_prices, (SubstrateRequestException, ValueError)):
             for sn in decoded:
@@ -3270,7 +3274,9 @@ class AsyncSubtensor(SubtensorMixin):
         if query.value is None:
             return None
 
-        public_key_bytes = bytes(query.value_object)
+        value: bytearray = query.value
+
+        public_key_bytes = bytes(value)
 
         # Validate public_key size for ML-KEM-768 (must be exactly 1184 bytes)
         if len(public_key_bytes) != MLKEM768_PUBLIC_KEY_SIZE:
@@ -4654,11 +4660,10 @@ class AsyncSubtensor(SubtensorMixin):
         )
 
         prices = {}
-        async for id_, current_sqrt_price in current_sqrt_prices:
-            # TODO investigate if we need to use fixed_to_decimal here instead
-            current_sqrt_price = fixed_to_float(current_sqrt_price)
+        async for id_, current_sqrt_price_bits in current_sqrt_prices:
+            current_sqrt_price = fixed_to_decimal(current_sqrt_price_bits)
             current_price = current_sqrt_price * current_sqrt_price
-            current_price_in_tao = Balance.from_rao(int(current_price * 1e9))
+            current_price_in_tao = Balance.from_tao(float(current_price))
             prices.update({id_: current_price_in_tao})
 
         # SN0 price is always 1 TAO
