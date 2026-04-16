@@ -3799,7 +3799,7 @@ class Subtensor(SubtensorMixin):
             method="current_alpha_price",
             params=[netuid],
             block_hash=block_hash,
-        ).value
+        )
         return Balance.from_rao(price_rao)
 
     def get_subnet_prices(
