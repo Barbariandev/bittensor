@@ -76,18 +76,15 @@ class DynamicInfo(InfoBase):
 
         if subnet_identity := decoded.get("subnet_identity"):
             # we need to check it for keep backwards compatibility
-            logo_bytes = subnet_identity.get("logo_url")
-            si_logo_url = bytes(logo_bytes).decode() if logo_bytes else None
-
             subnet_identity = SubnetIdentity(
-                subnet_name=bytes(subnet_identity["subnet_name"]).decode(),
-                github_repo=bytes(subnet_identity["github_repo"]).decode(),
-                subnet_contact=bytes(subnet_identity["subnet_contact"]).decode(),
-                subnet_url=bytes(subnet_identity["subnet_url"]).decode(),
-                logo_url=si_logo_url,
-                discord=bytes(subnet_identity["discord"]).decode(),
-                description=bytes(subnet_identity["description"]).decode(),
-                additional=bytes(subnet_identity["additional"]).decode(),
+                subnet_name=subnet_identity["subnet_name"],
+                github_repo=subnet_identity["github_repo"],
+                subnet_contact=subnet_identity["subnet_contact"],
+                subnet_url=subnet_identity["subnet_url"],
+                logo_url=subnet_identity.get("logo_url", ""),
+                discord=subnet_identity["discord"],
+                description=subnet_identity["description"],
+                additional=subnet_identity["additional"],
             )
         else:
             subnet_identity = None
