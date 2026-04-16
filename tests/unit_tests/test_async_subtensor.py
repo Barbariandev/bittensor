@@ -3786,8 +3786,7 @@ async def test_subnet(subtensor, mocker):
     mocked_get_subnet_price = mocker.patch.object(
         subtensor, "get_subnet_price", return_value=Balance.from_tao(100.0)
     )
-    mocked_decode = mocker.Mock(return_value={"netuid": netuid})
-    mocked_runtime_call = mocker.Mock(decode=mocked_decode)
+    mocked_runtime_call = {"netuid": netuid}
     mocker.patch.object(
         subtensor.substrate, "runtime_call", return_value=mocked_runtime_call
     )
