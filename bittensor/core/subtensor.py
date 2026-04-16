@@ -3223,9 +3223,11 @@ class Subtensor(SubtensorMixin):
             params=[netuid, hotkey_ss58],
             block=block,
         )
-        if query.value is None:
+        if query.value_serialized is None:
             return None
-        return tuple(decode_revealed_commitment(pair) for pair in query)
+        return tuple(
+            decode_revealed_commitment(pair) for pair in query.value_serialized
+        )
 
     def get_root_claim_type(
         self,

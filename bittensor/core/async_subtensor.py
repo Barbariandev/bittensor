@@ -3869,9 +3869,11 @@ class AsyncSubtensor(SubtensorMixin):
             block_hash=block_hash,
             reuse_block=reuse_block,
         )
-        if query.value is None:
+        if query.value_serialized is None:
             return None
-        return tuple(decode_revealed_commitment(pair) for pair in query)
+        return tuple(
+            decode_revealed_commitment(pair) for pair in query.value_serialized
+        )
 
     async def get_root_claim_type(
         self,
