@@ -40,7 +40,7 @@ class CrowdloanInfo:
     funds_account: str
     raised: Balance
     target_address: Optional[str]
-    call: Optional[str]
+    call: Optional[dict]
     finalized: bool
     contributors_count: int
 

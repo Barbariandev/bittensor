@@ -360,14 +360,15 @@ class AsyncSubtensor(SubtensorMixin):
         call_data = data.get("call")
         if call_data and "Inline" in call_data:
             try:
-                inline_bytes = bytes(call_data["Inline"][0][0])
-                scale_object = await self.substrate.create_scale_object(
-                    type_string="Call",
-                    data=scalecodec.ScaleBytes(inline_bytes),
+                runtime = await self.substrate.init_runtime(block_hash=block_hash)
+                call_obj = await self.substrate.create_scale_object(
+                    "Call",
+                    data=scalecodec.ScaleBytes(call_data["Inline"]),
                     block_hash=block_hash,
+                    runtime=runtime,
                 )
-                decoded_call = scale_object.decode()
-                data["call"] = decoded_call
+                call_value = call_obj.decode()
+                data["call"] = call_value
             except Exception as e:
                 data["call"] = {"decode_error": str(e), "raw": call_data}
 
