@@ -96,8 +96,7 @@ class Certificate(str):
     def __new__(cls, data: "str | NeuronCertificateResponse"):
         if isinstance(data, dict):
             pubkey: str = data["public_key"]
-            pubkey_bytes = bytes.fromhex(pubkey.removeprefix("0x"))
-            string = chr(data["algorithm"]) + "".join([chr(i) for i in pubkey_bytes])
+            string = chr(data["algorithm"]) + pubkey
         else:
             string = data
         return str.__new__(cls, string)
