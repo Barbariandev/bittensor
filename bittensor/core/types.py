@@ -1,7 +1,7 @@
 import argparse
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING, NotRequired
+from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,6 +20,12 @@ from bittensor.utils import (
     UnlockStatus,
 )
 from bittensor.utils.btlogging import logging
+
+try:
+    from typing import NotRequired
+except ImportError:
+    # fallback to typing_extensions if Python < 3.11
+    from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
     from bittensor_wallet import Wallet
@@ -651,4 +657,4 @@ class DynamicInfoResponse(TypedDict):
     network_registered_at: int
     subnet_identity: SubnetIdentityResponse
     moving_price: FixedPoint
-    price: NotRequired[Balance]
+    price: NotRequired["Balance"]
