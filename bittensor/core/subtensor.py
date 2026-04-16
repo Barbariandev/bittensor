@@ -1189,10 +1189,10 @@ class Subtensor(SubtensorMixin):
             method=method,
             block_hash=block_hash,
         )
-        if query is None or not hasattr(query, "value"):
+        if query is None:
             return None
 
-        return MetagraphInfo.list_from_dicts(query.value)
+        return MetagraphInfo.list_from_dicts(query)
 
     def get_all_neuron_certificates(
         self, netuid: int, block: Optional[int] = None
