@@ -1,7 +1,7 @@
 import argparse
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING
+from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING, NotRequired
 
 import numpy as np
 from numpy.typing import NDArray
@@ -616,3 +616,39 @@ class CrowdloansResponse(TypedDict):
     call: Optional[dict]
     finalized: bool
     contributors_count: int
+
+
+class SubnetIdentityResponse(TypedDict):
+    subnet_name: str
+    github_repo: str
+    subnet_contact: str
+    subnet_url: str
+    discord: str
+    description: str
+    logo_url: str
+    additional: str
+
+
+class DynamicInfoResponse(TypedDict):
+    netuid: int
+    owner_hotkey: str
+    owner_coldkey: str
+    subnet_name: list[int]  # needs bytes.decode('utf-8') to stringify
+    token_symbol: list[int]  # needs bytes.decode('utf-8') to stringify
+    tempo: int
+    last_step: int
+    blocks_since_last_step: int
+    emission: int
+    alpha_in: int
+    alpha_out: int
+    tao_in: int
+    alpha_out_emission: int
+    alpha_in_emission: int
+    tao_in_emission: int
+    pending_alpha_emission: int
+    pending_root_emission: int
+    subnet_volume: int
+    network_registered_at: int
+    subnet_identity: SubnetIdentityResponse
+    moving_price: FixedPoint
+    price: NotRequired[Balance]

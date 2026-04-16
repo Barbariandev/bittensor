@@ -11,7 +11,7 @@ from async_substrate_interface.substrate_addons import RetryAsyncSubstrate
 from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
-from scalecodec import GenericCall
+from scalecodec import GenericCall, ScaleValue
 from scalecodec.base import ScaleType
 from scalecodec.utils.math import FixedPoint, fixed_to_decimal
 
@@ -151,6 +151,7 @@ from bittensor.core.types import (
     NeuronCertificateResponse,
     CommitmentOfResponse,
     CrowdloansResponse,
+    DynamicInfoResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -528,7 +529,7 @@ class AsyncSubtensor(SubtensorMixin):
         *args: tuple[str, str, Optional[list[Any]]],
         block_hash: Optional[str] = None,
         default_value: Any = ValueError,
-    ) -> ScaleType[Any] | Any:
+    ) -> ScaleType[ScaleValue] | Any:
         """
         Queries the subtensor node with a given set of args, falling back to the next group if the method
         does not exist at the given block. This method exists to support backwards compatibility for blocks.
@@ -753,7 +754,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[ScaleType[Any]]:
+    ) -> Optional[ScaleType[ScaleValue]]:
         """Retrieves a constant from the specified module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -854,7 +855,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> ScaleType[Any]:
+    ) -> ScaleType[ScaleValue]:
         """Queries any module storage on the Bittensor blockchain with the specified parameters and block number.
         This function is a generic query interface that allows for flexible and diverse data retrieval from various
         blockchain modules. Use this function for nonstandard queries to storage defined within the Bittensor
@@ -922,7 +923,7 @@ class AsyncSubtensor(SubtensorMixin):
         block: Optional[int] = None,
         block_hash: Optional[str] = None,
         reuse_block: bool = False,
-    ) -> Optional[ScaleType[Any]]:
+    ) -> ScaleType[ScaleValue]:
         """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to storage defined within the Bittensor blockchain, if these cannot
@@ -1008,7 +1009,7 @@ class AsyncSubtensor(SubtensorMixin):
         if not block_hash and reuse_block:
             block_hash = self.substrate.last_block_hash
 
-        decoded: list[dict[str, Any]]
+        decoded: list[DynamicInfoResponse]
         subnet_prices: dict[int, Balance]
 
         decoded, subnet_prices = await asyncio.gather(
@@ -1728,7 +1729,9 @@ class AsyncSubtensor(SubtensorMixin):
             )
             for address in addresses
         ]
-        batch_call = await self.substrate.query_multi(calls, block_hash=block_hash)
+        batch_call: list[tuple[StorageKey, dict]] = await self.substrate.query_multi(
+            calls, block_hash=block_hash
+        )  # type: ignore[assignment]
         results = {}
         for item in batch_call:
             value = item[1] or {"data": {"free": 0}}
@@ -3693,7 +3696,7 @@ class AsyncSubtensor(SubtensorMixin):
             - See: <https://docs.learnbittensor.org/keys/proxies>
         """
         block_hash = await self.determine_block_hash(block, block_hash, reuse_block)
-        query: ScaleType[tuple[list[dict], int]] = await self.substrate.query(
+        query: ScaleType[tuple[list[dict], int]] = await self.substrate.query(  # type: ignore[assignment]
             module="Proxy",
             storage_function="Announcements",
             params=[delegate_account_ss58],
@@ -5655,7 +5658,7 @@ class AsyncSubtensor(SubtensorMixin):
         if not block_hash and reuse_block:
             block_hash = self.substrate.last_block_hash
 
-        decoded: Optional[dict]
+        decoded: Optional[DynamicInfoResponse]
         price: Optional[Balance]
         decoded, price = await asyncio.gather(
             self.substrate.runtime_call(

@@ -10,6 +10,7 @@ from async_substrate_interface.sync_substrate import SubstrateInterface
 from async_substrate_interface.utils.storage import StorageKey
 from bittensor_drand import get_encrypted_commitment
 from bittensor_wallet.utils import SS58_FORMAT
+from scalecodec import ScaleValue
 from scalecodec.base import ScaleType
 from scalecodec.utils.math import FixedPoint, fixed_to_decimal
 
@@ -150,6 +151,7 @@ from bittensor.core.types import (
     NeuronCertificateResponse,
     CommitmentOfResponse,
     CrowdloansResponse,
+    DynamicInfoResponse,
 )
 from bittensor.utils import (
     Certificate,
@@ -636,7 +638,7 @@ class Subtensor(SubtensorMixin):
 
     def query_constant(
         self, module_name: str, constant_name: str, block: Optional[int] = None
-    ) -> Optional[ScaleType[Any]]:
+    ) -> Optional[ScaleType[ScaleValue]]:
         """Retrieves a constant from the specified module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -773,7 +775,7 @@ class Subtensor(SubtensorMixin):
         name: str,
         params: Optional[list] = None,
         block: Optional[int] = None,
-    ) -> ScaleType[Any]:
+    ) -> ScaleType[ScaleValue]:
         """Queries named storage from the Subtensor module on the Bittensor blockchain.
 
         Use this function for nonstandard queries to constants defined within the Bittensor blockchain, if these cannot
@@ -832,10 +834,13 @@ class Subtensor(SubtensorMixin):
             a subnet, or None if the query fails.
         """
         block_hash = self.determine_block_hash(block=block)
-        decoded = self.substrate.runtime_call(
-            api="SubnetInfoRuntimeApi",
-            method="get_all_dynamic_info",
-            block_hash=block_hash,
+        decoded = cast(
+            list[DynamicInfoResponse],
+            self.substrate.runtime_call(
+                api="SubnetInfoRuntimeApi",
+                method="get_all_dynamic_info",
+                block_hash=block_hash,
+            ),
         )
         try:
             subnet_prices = self.get_subnet_prices(block=block)
@@ -864,7 +869,7 @@ class Subtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/glossary#epoch>
         """
-        query: ScaleType[int] = self.query_subtensor(
+        query: ScaleType[int] = self.query_subtensor(  # type: ignore[assignment]
             name="BlocksSinceLastStep", block=block, params=[netuid]
         )
         return query.value
@@ -1191,7 +1196,7 @@ class Subtensor(SubtensorMixin):
         )
         if query is None:
             return None
-
+        assert isinstance(query, list)
         return MetagraphInfo.list_from_dicts(query)
 
     def get_all_neuron_certificates(
@@ -1377,7 +1382,9 @@ class Subtensor(SubtensorMixin):
             )
             for address in addresses
         ]
-        batch_call = self.substrate.query_multi(calls, block_hash=block_hash)
+        batch_call: list[tuple[StorageKey, dict]] = self.substrate.query_multi(  # type: ignore[assignment]
+            calls, block_hash=block_hash
+        )
         results = {}
         key: StorageKey
         val: dict
@@ -1552,8 +1559,7 @@ class Subtensor(SubtensorMixin):
             block_hash=self.determine_block_hash(block),
         )
         children, cooldown = cast(
-            tuple[list[tuple[int, Any]], int],
-            getattr(pending_query, "value", pending_query),
+            tuple[list[tuple[int, Any]], int], pending_query.value
         )
 
         return (
@@ -2125,7 +2131,7 @@ class Subtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/staking-and-delegation/delegation>
         """
-        result: ScaleType[int] = self.query_subtensor(
+        result: ScaleType[int] = self.query_subtensor(  # type: ignore[assignment]
             name="Delegates",
             block=block,
             params=[hotkey_ss58],
@@ -2210,7 +2216,7 @@ class Subtensor(SubtensorMixin):
         Notes:
             - <https://docs.learnbittensor.org/glossary#existential-deposit>
         """
-        result: Optional[ScaleType[int]] = self.substrate.get_constant(
+        result: Optional[ScaleType[int]] = self.substrate.get_constant(  # type: ignore[assignment]
             module_name="Balances",
             constant_name="ExistentialDeposit",
             block_hash=self.determine_block_hash(block),
@@ -2417,9 +2423,12 @@ class Subtensor(SubtensorMixin):
             )
         )
 
-        fee_global_tao = fixed_to_float(fee_global_tao_query[1])
-        fee_global_alpha = fixed_to_float(fee_global_alpha_query[1])
-        sqrt_price = fixed_to_float(sqrt_price_query[1])
+        fee_global_tao_raw: FixedPoint = fee_global_tao_query[1]  # type: ignore[assignment]
+        fee_global_alpha_raw: FixedPoint = fee_global_alpha_query[1]  # type: ignore[assignment]
+        sqrt_price_raw: FixedPoint = sqrt_price_query[1]  # type: ignore[assignment]
+        fee_global_tao = fixed_to_float(fee_global_tao_raw)
+        fee_global_alpha = fixed_to_float(fee_global_alpha_raw)
+        sqrt_price = fixed_to_float(sqrt_price_raw)
         current_tick = price_to_tick(sqrt_price**2)
 
         positions_values: list[tuple[PositionResponse, int, int]] = []
@@ -2448,7 +2457,8 @@ class Subtensor(SubtensorMixin):
             positions_storage_keys, block_hash=block_hash
         )
         # iterator with just the values
-        ticks = iter([x[1] for x in ticks_query])
+        tick_values: list[dict] = [x[1] for x in ticks_query]  # type: ignore
+        ticks = iter(tick_values)
         positions: list[LiquidityPosition] = []
         for position, tick_low_idx, tick_high_idx in positions_values:
             tick_low = next(ticks)
@@ -3557,7 +3567,7 @@ class Subtensor(SubtensorMixin):
             netuid: The subnet ID to query for.
             block: The block number at which to query the stake information.
         """
-        hotkey_alpha_query = self.query_subtensor(
+        hotkey_alpha_query: ScaleType[int] = self.query_subtensor(  # type: ignore[assignment]
             name="TotalHotkeyAlpha", params=[hotkey_ss58, netuid], block=block
         )
         return Balance.from_rao(hotkey_alpha_query.value, netuid=netuid)
@@ -3666,10 +3676,11 @@ class Subtensor(SubtensorMixin):
         Return:
             Amount of blocks after the start call can be executed.
         """
-        return self.query_subtensor(
+        query: ScaleType[int] = self.query_subtensor(  # type: ignore[assignment]
             name="StartCallDelay",
             block=block,
-        ).value
+        )
+        return query.value
 
     def get_subnet_burn_cost(self, block: Optional[int] = None) -> Optional[Balance]:
         """
@@ -3796,7 +3807,7 @@ class Subtensor(SubtensorMixin):
             return Balance.from_tao(1)
 
         block_hash = self.determine_block_hash(block=block)
-        price_rao = self.substrate.runtime_call(
+        price_rao: int = self.substrate.runtime_call(  # type: ignore[assignment]
             api="SwapRuntimeApi",
             method="current_alpha_price",
             params=[netuid],
@@ -3924,7 +3935,7 @@ class Subtensor(SubtensorMixin):
         )
 
         commits = result.records[0][1] if result.records else []
-        return [WeightCommitInfo.from_vec_u8_v2(commit) for commit in commits]
+        return [WeightCommitInfo.from_vec_u8_v2(commit) for commit in commits]  # type: ignore[arg-type,union-attr]
 
     def get_timestamp(self, block: Optional[int] = None) -> datetime:
         """
@@ -4332,7 +4343,7 @@ class Subtensor(SubtensorMixin):
             block=block,
             params=[netuid],
         )
-        qv: Optional[int] = query.value
+        qv: Optional[int] = query.value  # type: ignore[assignment]
         if qv is None or qv <= 0:
             return False
         else:
@@ -4600,11 +4611,14 @@ class Subtensor(SubtensorMixin):
         """
         block_hash = self.determine_block_hash(block=block)
 
-        decoded: Optional[dict] = self.substrate.runtime_call(
-            api="SubnetInfoRuntimeApi",
-            method="get_dynamic_info",
-            params=[netuid],
-            block_hash=block_hash,
+        decoded = cast(
+            Optional[DynamicInfoResponse],
+            self.substrate.runtime_call(
+                api="SubnetInfoRuntimeApi",
+                method="get_dynamic_info",
+                params=[netuid],
+                block_hash=block_hash,
+            ),
         )
 
         if isinstance(decoded, dict):
