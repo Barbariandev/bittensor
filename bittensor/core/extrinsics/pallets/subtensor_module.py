@@ -274,6 +274,27 @@ class SubtensorModule(_BasePallet):
             work=work,
         )
 
+    def register_limit(
+        self,
+        netuid: int,
+        hotkey: str,
+        limit_price: int,
+    ) -> Call:
+        """Returns GenericCall instance for Subtensor function SubtensorModule.register_limit.
+
+        Parameters:
+            netuid: The netuid of the subnet to register on.
+            hotkey: The hotkey SS58 address associated with the neuron.
+            limit_price: Maximum acceptable burn price in RAO. If on-chain burn exceeds this,
+                the transaction fails with RegistrationPriceLimitExceeded.
+
+        Returns:
+            GenericCall instance.
+        """
+        return self.create_composed_call(
+            netuid=netuid, hotkey=hotkey, limit_price=limit_price
+        )
+
     def register_network(self, hotkey: str) -> Call:
         """Returns GenericCall instance for Subtensor function SubtensorModule.register_network.
 
