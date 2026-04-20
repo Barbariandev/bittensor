@@ -27,6 +27,7 @@ class Extrinsics:
         self.move_stake = subtensor.move_stake
         self.refund_crowdloan = subtensor.refund_crowdloan
         self.register = subtensor.register
+        self.register_limit = subtensor.register_limit
         self.register_subnet = subtensor.register_subnet
         self.remove_liquidity = subtensor.remove_liquidity
         self.reveal_weights = subtensor.reveal_weights

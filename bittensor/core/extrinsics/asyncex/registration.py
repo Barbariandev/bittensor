@@ -5,11 +5,12 @@ This module provides async functionalities for registering a wallet with the sub
 import asyncio
 from typing import Optional, Union, TYPE_CHECKING
 
-from bittensor.core.errors import RegistrationError
+from bittensor.core.errors import BalanceTypeError, RegistrationError
 from bittensor.core.extrinsics.asyncex.mev_shield import submit_encrypted_extrinsic
 from bittensor.core.extrinsics.pallets import SubtensorModule
 from bittensor.core.settings import DEFAULT_MEV_PROTECTION
 from bittensor.core.types import ExtrinsicResponse
+from bittensor.utils.balance import Balance
 from bittensor.utils.btlogging import logging
 from bittensor.utils.registration import create_pow_async, log_no_torch_error, torch
 
@@ -146,6 +147,152 @@ async def burned_register_extrinsic(
             return response
 
         # neuron not found
+        message = f"Neuron with hotkey {wallet.hotkey.ss58_address} not found in subnet {netuid} after registration."
+        return ExtrinsicResponse(
+            success=False,
+            message=message,
+            extrinsic=response.extrinsic,
+            error=RegistrationError(message),
+        ).with_log()
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
+
+
+async def register_limit_extrinsic(
+    subtensor: "AsyncSubtensor",
+    wallet: "Wallet",
+    netuid: int,
+    limit_price: Balance,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
+    period: Optional[int] = None,
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
+    """Registers the wallet to chain by recycling TAO, with a maximum burn price limit.
+
+    Parameters:
+        subtensor: Subtensor instance.
+        wallet: Bittensor wallet object.
+        netuid: The ``netuid`` of the subnet to register on.
+        limit_price: Maximum acceptable burn price as a Balance instance. If the on-chain burn price exceeds
+            this value, the transaction will fail with RegistrationPriceLimitExceeded.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+    Returns:
+        ExtrinsicResponse: The result object of the extrinsic execution.
+    """
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type="both"
+            )
+        ).success:
+            return unlocked
+
+        if not isinstance(limit_price, Balance):
+            raise BalanceTypeError("`limit_price` must be an instance of Balance.")
+
+        block_hash = await subtensor.substrate.get_chain_head()
+        if not await subtensor.subnet_exists(netuid=netuid, block_hash=block_hash):
+            return ExtrinsicResponse(
+                False, f"Subnet {netuid} does not exist."
+            ).with_log()
+
+        neuron, old_balance, recycle_amount = await asyncio.gather(
+            subtensor.get_neuron_for_pubkey_and_subnet(
+                netuid=netuid,
+                hotkey_ss58=wallet.hotkey.ss58_address,
+                block_hash=block_hash,
+            ),
+            subtensor.get_balance(
+                address=wallet.coldkeypub.ss58_address, block_hash=block_hash
+            ),
+            subtensor.recycle(netuid=netuid, block_hash=block_hash),
+        )
+
+        if not neuron.is_null:
+            message = "Already registered."
+            logging.debug(f"[green]{message}[/green]")
+            logging.debug(f"\t\tuid: [blue]{neuron.uid}[/blue]")
+            logging.debug(f"\t\tnetuid: [blue]{neuron.netuid}[/blue]")
+            logging.debug(f"\t\thotkey: [blue]{neuron.hotkey}[/blue]")
+            logging.debug(f"\t\tcoldkey: [blue]{neuron.coldkey}[/blue]")
+            return ExtrinsicResponse(
+                message=message, data={"neuron": neuron, "old_balance": old_balance}
+            )
+
+        logging.debug(f"Recycling {recycle_amount} to register on subnet:{netuid}")
+
+        call = await SubtensorModule(subtensor).register_limit(
+            netuid=netuid,
+            hotkey=wallet.hotkey.ss58_address,
+            limit_price=limit_price.rao,
+        )
+
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+        extrinsic_fee = response.extrinsic_fee
+        logging.debug(
+            f"The registration fee for SN #[blue]{netuid}[/blue] is [blue]{extrinsic_fee}[/blue]."
+        )
+        if not response.success:
+            logging.error(f"[red]{response.message}[/red]")
+            await asyncio.sleep(0.5)
+            return response
+
+        new_balance = await subtensor.get_balance(
+            address=wallet.coldkeypub.ss58_address
+        )
+
+        logging.debug(
+            f"Balance: [blue]{old_balance}[/blue] :arrow_right: [green]{new_balance}[/green]"
+        )
+        is_registered = await subtensor.is_hotkey_registered(
+            netuid=netuid, hotkey_ss58=wallet.hotkey.ss58_address
+        )
+
+        response.data = {
+            "neuron": neuron,
+            "balance_before": old_balance,
+            "balance_after": new_balance,
+            "recycle_amount": recycle_amount,
+        }
+
+        if is_registered:
+            logging.debug("[green]Registered.[/green]")
+            return response
+
         message = f"Neuron with hotkey {wallet.hotkey.ss58_address} not found in subnet {netuid} after registration."
         return ExtrinsicResponse(
             success=False,
