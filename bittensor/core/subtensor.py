@@ -98,6 +98,7 @@ from bittensor.core.extrinsics.proxy import (
 from bittensor.core.extrinsics.registration import (
     burned_register_extrinsic,
     register_extrinsic,
+    register_limit_extrinsic,
     register_subnet_extrinsic,
     set_subnet_identity_extrinsic,
 )
@@ -6725,6 +6726,62 @@ class Subtensor(SubtensorMixin):
             dev_id=dev_id,
             output_in_place=output_in_place,
             log_verbose=log_verbose,
+            mev_protection=mev_protection,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_revealed_execution=wait_for_revealed_execution,
+        )
+
+    def register_limit(
+        self,
+        wallet: "Wallet",
+        netuid: int,
+        limit_price: Balance,
+        *,
+        mev_protection: bool = DEFAULT_MEV_PROTECTION,
+        period: Optional[int] = DEFAULT_PERIOD,
+        raise_error: bool = False,
+        wait_for_inclusion: bool = True,
+        wait_for_finalization: bool = True,
+        wait_for_revealed_execution: bool = True,
+    ) -> ExtrinsicResponse:
+        """
+        Registers a neuron on the Bittensor network by recycling TAO, with a maximum burn price limit.
+
+        Unlike ``burned_register``, this method includes a ``limit_price`` parameter that ensures the registration
+        will only proceed if the current on-chain burn price does not exceed the specified maximum. This protects
+        against unexpected price spikes between reading the price and submitting the transaction.
+
+        Parameters:
+            wallet: The wallet associated with the neuron to be registered.
+            netuid: The unique identifier of the subnet.
+            limit_price: Maximum acceptable burn price as a Balance instance. If the on-chain burn price exceeds
+                this value, the transaction will fail with RegistrationPriceLimitExceeded.
+            mev_protection: If ``True``, encrypts and submits the transaction through the MEV Shield pallet to protect
+                against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+                decrypt and execute it. If ``False``, submits the transaction directly without encryption.
+            period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+                transaction is not included in a block within that number of blocks, it will expire and be rejected. You
+                can think of it as an expiration date for the transaction.
+            raise_error: Raises a relevant exception rather than returning ``False`` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+            wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+        Returns:
+            ExtrinsicResponse: The result object of the extrinsic execution.
+
+        Notes:
+            - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#registration-rate-limits>
+        """
+        check_balance_amount(limit_price)
+        return register_limit_extrinsic(
+            subtensor=self,
+            wallet=wallet,
+            netuid=netuid,
+            limit_price=limit_price,
             mev_protection=mev_protection,
             period=period,
             raise_error=raise_error,
