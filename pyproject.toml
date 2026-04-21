@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bittensor"
-version = "10.2.0"
+version = "10.3.0"
 description = "Bittensor SDK"
 readme = "README.md"
 authors = [
@@ -33,8 +33,7 @@ dependencies = [
     "uvicorn",
     "bittensor-drand>=1.3.0,<2.0.0",
     "bittensor-wallet==4.0.1",
-    # TODO this will need to be changed to asi 2.0-3.0 when merged
-    "async-substrate-interface @ git+https://github.com/opentensor/async-substrate-interface.git@release/2.0.0",
+    "async-substrate-interface>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -63,7 +62,7 @@ torch = [
     "torch>=1.13.1,<3.0"
 ]
 cli = [
-    "bittensor-cli>=9.16.0"
+    "bittensor-cli>=9.21.0"
 ]
 
 
