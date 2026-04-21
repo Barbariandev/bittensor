@@ -3,6 +3,7 @@ from bittensor_wallet import Wallet
 from bittensor.core.types import ExtrinsicResponse
 from bittensor.core.extrinsics import registration
 from bittensor.core.subtensor import Subtensor
+from bittensor.utils.balance import Balance
 from bittensor.utils.registration import POWSolution
 
 
@@ -364,3 +365,57 @@ def test_set_subnet_identity_extrinsic_is_failed(mock_subtensor, mock_wallet, mo
     )
 
     assert result == mocked_sign_and_send_extrinsic.return_value
+
+
+@pytest.mark.parametrize(
+    "subnet_exists, neuron_is_null, recycle_success, is_registered, expected_result, test_id",
+    [
+        # Happy paths
+        (True, False, None, None, True, "neuron-not-null"),
+        (True, True, True, True, True, "happy-path-wallet-registered"),
+        # Error paths
+        (True, True, True, False, False, "error-path-not-registered"),
+        (False, True, False, None, False, "subnet-non-existence"),
+        (True, True, False, False, False, "error-path-recycling-failed"),
+    ],
+)
+def test_register_limit_extrinsic(
+    mock_subtensor,
+    mock_wallet,
+    subnet_exists,
+    neuron_is_null,
+    recycle_success,
+    is_registered,
+    expected_result,
+    test_id,
+    mocker,
+):
+    # Arrange
+    mock_substrate_ = mocker.MagicMock(
+        **{"get_payment_info.return_value": {"partial_fee": 10}}
+    )
+    mocker.patch.object(mock_subtensor, "substrate", mock_substrate_)
+    mocker.patch.object(mock_subtensor, "subnet_exists", return_value=subnet_exists)
+    mocker.patch.object(
+        mock_subtensor,
+        "get_neuron_for_pubkey_and_subnet",
+        return_value=mocker.MagicMock(is_null=neuron_is_null),
+    )
+    mocker.patch.object(
+        mock_subtensor,
+        "sign_and_send_extrinsic",
+        return_value=ExtrinsicResponse(recycle_success, "Mock error message"),
+    )
+    mocker.patch.object(
+        mock_subtensor, "is_hotkey_registered", return_value=is_registered
+    )
+
+    # Act
+    result = registration.register_limit_extrinsic(
+        subtensor=mock_subtensor,
+        wallet=mock_wallet,
+        netuid=123,
+        limit_price=Balance.from_rao(1000000000),
+    )
+    # Assert
+    assert result.success == expected_result, f"Test failed for test_id: {test_id}"
