@@ -97,7 +97,6 @@ from bittensor.core.extrinsics.asyncex.proxy import (
 )
 from bittensor.core.extrinsics.asyncex.registration import (
     burned_register_extrinsic,
-    register_extrinsic,
     register_limit_extrinsic,
     register_subnet_extrinsic,
     set_subnet_identity_extrinsic,
@@ -7818,14 +7817,7 @@ class AsyncSubtensor(SubtensorMixin):
         self: "AsyncSubtensor",
         wallet: "Wallet",
         netuid: int,
-        max_allowed_attempts: int = 3,
-        output_in_place: bool = False,
-        cuda: bool = False,
-        dev_id: Union[list[int], int] = 0,
-        tpb: int = 256,
-        num_processes: Optional[int] = None,
-        update_interval: Optional[int] = None,
-        log_verbose: bool = False,
+        limit_price: Optional[Balance] = None,
         *,
         mev_protection: bool = DEFAULT_MEV_PROTECTION,
         period: Optional[int] = DEFAULT_PERIOD,
@@ -7834,63 +7826,71 @@ class AsyncSubtensor(SubtensorMixin):
         wait_for_finalization: bool = True,
         wait_for_revealed_execution: bool = True,
     ) -> ExtrinsicResponse:
-        """
-        Registers a neuron on the Bittensor subnet with provided netuid using the provided wallet.
+        """Registers a neuron on the Bittensor network by recycling TAO, with automatic price protection.
 
-        Registration is a critical step for a neuron to become an active participant in the network, enabling it to
-        stake, set weights, and receive incentives.
+        Uses ``register_limit`` under the hood. If ``limit_price`` is not provided, it is automatically
+        calculated as the current recycle (burn) cost plus a 0.5% tolerance to protect against price fluctuations.
+
+        For root subnet (``netuid == 0``), delegates to ``root_register_extrinsic``.
 
         Parameters:
             wallet: The wallet associated with the neuron to be registered.
             netuid: The unique identifier of the subnet.
-            max_allowed_attempts: Maximum number of attempts to register the wallet.
-            output_in_place: If `True`, prints the progress of the proof of work to the console in-place. Meaning the
-                progress is printed on the same lines.
-            cuda: If `true`, the wallet should be registered using CUDA device(s).
-            dev_id: The CUDA device id to use, or a list of device ids.
-            tpb: The number of threads per block (CUDA).
-            num_processes: The number of processes to use to register.
-            update_interval: The number of nonces to solve between updates.
-            log_verbose: If `true`, the registration process will log more information.
-            mev_protection: If `True`, encrypts and submits the transaction through the MEV Shield pallet to protect
+            limit_price: Maximum acceptable burn price as a Balance instance. If ``None``, automatically calculated
+                as ``recycle * 1.005`` (0.5% tolerance). If the on-chain burn price exceeds this value, the
+                transaction will fail with RegistrationPriceLimitExceeded.
+            mev_protection: If ``True``, encrypts and submits the transaction through the MEV Shield pallet to protect
                 against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
-                decrypt and execute it. If `False`, submits the transaction directly without encryption.
+                decrypt and execute it. If ``False``, submits the transaction directly without encryption.
             period: The number of blocks during which the transaction will remain valid after it's submitted. If the
                 transaction is not included in a block within that number of blocks, it will expire and be rejected. You
                 can think of it as an expiration date for the transaction.
-            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
-            wait_for_inclusion: Whether to wait for the inclusion of the transaction.
-            wait_for_finalization: Whether to wait for the finalization of the transaction.
+            raise_error: Raises a relevant exception rather than returning ``False`` if unsuccessful.
+            wait_for_inclusion: Waits for the transaction to be included in a block.
+            wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
             wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
         Returns:
             ExtrinsicResponse: The result object of the extrinsic execution.
 
-        This function facilitates the entry of new neurons into the network, supporting the decentralized growth and
-        scalability of the Bittensor ecosystem.
-
         Notes:
             - Rate Limits: <https://docs.learnbittensor.org/learn/chain-rate-limits#registration-rate-limits>
         """
-        return await register_extrinsic(
-            subtensor=self,
-            wallet=wallet,
-            netuid=netuid,
-            max_allowed_attempts=max_allowed_attempts,
-            tpb=tpb,
-            update_interval=update_interval,
-            num_processes=num_processes,
-            cuda=cuda,
-            dev_id=dev_id,
-            output_in_place=output_in_place,
-            log_verbose=log_verbose,
-            mev_protection=mev_protection,
-            period=period,
-            raise_error=raise_error,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
-            wait_for_revealed_execution=wait_for_revealed_execution,
-        )
+        async with self:
+            if netuid == 0:
+                return await root_register_extrinsic(
+                    subtensor=self,
+                    wallet=wallet,
+                    mev_protection=mev_protection,
+                    period=period,
+                    raise_error=raise_error,
+                    wait_for_inclusion=wait_for_inclusion,
+                    wait_for_finalization=wait_for_finalization,
+                    wait_for_revealed_execution=wait_for_revealed_execution,
+                )
+
+            if limit_price is not None:
+                check_balance_amount(limit_price)
+            else:
+                recycle = await self.recycle(netuid=netuid)
+                if recycle is None:
+                    return ExtrinsicResponse(
+                        False, f"Subnet {netuid} does not exist."
+                    ).with_log()
+                limit_price = Balance.from_rao(recycle.rao * 1005 // 1000)
+
+            return await register_limit_extrinsic(
+                subtensor=self,
+                wallet=wallet,
+                netuid=netuid,
+                limit_price=limit_price,
+                mev_protection=mev_protection,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
 
     async def register_limit(
         self,
@@ -7950,7 +7950,7 @@ class AsyncSubtensor(SubtensorMixin):
             )
 
     async def register_subnet(
-        self: "AsyncSubtensor",
+        self,
         wallet: "Wallet",
         *,
         mev_protection: bool = DEFAULT_MEV_PROTECTION,

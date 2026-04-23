@@ -2504,39 +2504,53 @@ async def test_transfer_success(subtensor, fake_wallet, mocker):
 
 @pytest.mark.asyncio
 async def test_register_success(subtensor, fake_wallet, mocker):
-    """Tests register when there is enough balance and registration succeeds."""
+    """Tests register with auto-calculated limit_price from recycle."""
     # Preps
     fake_netuid = 1
 
-    mocked_register_extrinsic = mocker.AsyncMock()
+    mocked_register_limit_extrinsic = mocker.AsyncMock()
     mocker.patch.object(
-        async_subtensor, "register_extrinsic", mocked_register_extrinsic
+        async_subtensor, "register_limit_extrinsic", mocked_register_limit_extrinsic
+    )
+    mocker.patch.object(
+        subtensor, "recycle", return_value=Balance.from_rao(1_000_000_000)
     )
 
     # Call
     result = await subtensor.register(wallet=fake_wallet, netuid=fake_netuid)
 
     # Asserts
-    mocked_register_extrinsic.assert_awaited_once_with(
-        wallet=fake_wallet,
-        cuda=False,
-        dev_id=0,
-        log_verbose=False,
-        max_allowed_attempts=3,
-        netuid=1,
-        num_processes=None,
-        output_in_place=False,
+    mocked_register_limit_extrinsic.assert_awaited_once_with(
         subtensor=subtensor,
-        tpb=256,
-        update_interval=None,
+        wallet=fake_wallet,
+        netuid=1,
+        limit_price=Balance.from_rao(1_005_000_000),
         mev_protection=DEFAULT_MEV_PROTECTION,
         period=DEFAULT_PERIOD,
         raise_error=False,
-        wait_for_finalization=True,
         wait_for_inclusion=True,
+        wait_for_finalization=True,
         wait_for_revealed_execution=True,
     )
-    assert result == mocked_register_extrinsic.return_value
+    assert result == mocked_register_limit_extrinsic.return_value
+
+
+@pytest.mark.asyncio
+async def test_register_on_root(mock_substrate, subtensor, fake_wallet, mocker):
+    mock_substrate.submit_extrinsic.return_value = mocker.AsyncMock(
+        is_success=mocker.AsyncMock(return_value=True)(),
+    )
+    mocked_root_register_extrinsic = mocker.patch.object(
+        async_subtensor,
+        "root_register_extrinsic",
+    )
+
+    response = await subtensor.register(
+        wallet=fake_wallet,
+        netuid=0,
+    )
+
+    assert response == mocked_root_register_extrinsic.return_value
 
 
 @pytest.mark.asyncio
