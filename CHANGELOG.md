@@ -18,11 +18,18 @@
 * Removes flake8, uses ruff for linter check by @thewhaleking in https://github.com/latent-to/bittensor/pull/3313
 * Adds note to httpx in dev reqs by @thewhaleking in https://github.com/latent-to/bittensor/pull/3315
 * Add `register_limit` extrinsic by @basfroman in https://github.com/latent-to/bittensor/pull/3316
+* ASI 2.0 & cyscale by @thewhaleking in https://github.com/latent-to/bittensor/pull/3314
+* Bump ASI req by @thewhaleking in https://github.com/latent-to/bittensor/pull/3324
+* Remove PoW registration, refactor `register()` to use `register_limit` by @basfroman in https://github.com/latent-to/bittensor/pull/3325
+* hoist get_required_fields out of to_headers by @okradze in https://github.com/latent-to/bittensor/pull/3323
+* Adds CODEOWNERS file by @thewhaleking in https://github.com/latent-to/bittensor/pull/3327
+* Bump ASI + cyscale by @thewhaleking in https://github.com/latent-to/bittensor/pull/3326
 
 ## New Contributors
 * @ionodeionode made their first contribution in https://github.com/latent-to/bittensor/pull/3270
+* @okradze made their first contribution in https://github.com/latent-to/bittensor/pull/3323
 
-**Full Changelog**: https://github.com/latent-to/bittensor/compare/v10.2.0...v10.3.0
+**Full Changelog**: https://github.com/latent-to/bittensor/compare/v10.2.1...v10.3.0
 
 ## 10.2.0 /2026-03-19
 
