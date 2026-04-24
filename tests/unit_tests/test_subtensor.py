@@ -6293,3 +6293,51 @@ def test_dispute_coldkey_swap(mocker, subtensor):
         wait_for_revealed_execution=True,
     )
     assert response == mocked_dispute_coldkey_swap_extrinsic.return_value
+
+
+def test_register_success(subtensor, fake_wallet, mocker):
+    """Tests register with auto-calculated limit_price from recycle."""
+    # Preps
+    fake_netuid = 1
+
+    mocked_register_limit_extrinsic = mocker.patch.object(
+        subtensor_module, "register_limit_extrinsic"
+    )
+    mocker.patch.object(
+        subtensor, "recycle", return_value=Balance.from_rao(1_000_000_000)
+    )
+
+    # Call
+    result = subtensor.register(wallet=fake_wallet, netuid=fake_netuid)
+
+    # Asserts
+    mocked_register_limit_extrinsic.assert_called_once_with(
+        subtensor=subtensor,
+        wallet=fake_wallet,
+        netuid=1,
+        limit_price=Balance.from_rao(1_005_000_000),
+        mev_protection=DEFAULT_MEV_PROTECTION,
+        period=DEFAULT_PERIOD,
+        raise_error=False,
+        wait_for_inclusion=True,
+        wait_for_finalization=True,
+        wait_for_revealed_execution=True,
+    )
+    assert result == mocked_register_limit_extrinsic.return_value
+
+
+def test_register_on_root(mock_substrate, subtensor, fake_wallet, mocker):
+    mock_substrate.submit_extrinsic.return_value = MagicMock(
+        is_success=True,
+    )
+    mocked_root_register_extrinsic = mocker.patch.object(
+        subtensor_module,
+        "root_register_extrinsic",
+    )
+
+    response = subtensor.register(
+        wallet=fake_wallet,
+        netuid=0,
+    )
+
+    assert response == mocked_root_register_extrinsic.return_value
