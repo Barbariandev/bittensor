@@ -20,6 +20,9 @@ def test_announce_coldkey_swap_extrinsic(subtensor, mocker):
         "unlock_wallet",
         return_value=ExtrinsicResponse(success=True, message="Unlocked"),
     )
+    mocked_get_staking_hotkeys = mocker.patch.object(
+        subtensor, "get_staking_hotkeys", return_value=[]
+    )
     mocked_keypair = mocker.patch("bittensor.core.extrinsics.coldkey_swap.Keypair")
     mocked_keypair_instance = mocker.MagicMock()
     mocked_keypair_instance.public_key = b"\x00" * 32
@@ -49,6 +52,7 @@ def test_announce_coldkey_swap_extrinsic(subtensor, mocker):
 
     # Asserts
     mocked_unlock_wallet.assert_called_once_with(wallet, False)
+    mocked_get_staking_hotkeys.assert_called_once_with(new_coldkey_ss58)
     mocked_keypair.assert_called_once_with(ss58_address=new_coldkey_ss58)
     mocked_compute_hash.assert_called_once_with(mocked_keypair_instance)
     mocked_subtensor_module.assert_called_once_with(subtensor)
@@ -77,6 +81,9 @@ def test_announce_coldkey_swap_extrinsic_with_mev_protection(subtensor, mocker):
         ExtrinsicResponse,
         "unlock_wallet",
         return_value=ExtrinsicResponse(success=True, message="Unlocked"),
+    )
+    mocked_get_staking_hotkeys = mocker.patch.object(
+        subtensor, "get_staking_hotkeys", return_value=[]
     )
     mocked_keypair = mocker.patch("bittensor.core.extrinsics.coldkey_swap.Keypair")
     mocked_keypair_instance = mocker.MagicMock()
@@ -107,6 +114,7 @@ def test_announce_coldkey_swap_extrinsic_with_mev_protection(subtensor, mocker):
 
     # Asserts
     mocked_unlock_wallet.assert_called_once_with(wallet, False)
+    mocked_get_staking_hotkeys.assert_called_once_with(new_coldkey_ss58)
     mocked_subtensor_module.assert_called_once_with(subtensor)
     mocked_pallet_instance.announce_coldkey_swap.assert_called_once_with(
         new_coldkey_hash="0x" + "00" * 32
@@ -371,6 +379,50 @@ def test_dispute_coldkey_swap_extrinsic(subtensor, mocker):
     assert response == mocked_sign_and_send_extrinsic.return_value
 
 
+def test_clear_coldkey_swap_announcement_extrinsic(subtensor, mocker):
+    """Verify that sync clear_coldkey_swap_announcement_extrinsic calls pallet and sign_and_send_extrinsic."""
+    wallet = mocker.MagicMock(spec=Wallet)
+
+    mocked_unlock_wallet = mocker.patch.object(
+        ExtrinsicResponse,
+        "unlock_wallet",
+        return_value=ExtrinsicResponse(success=True, message="Unlocked"),
+    )
+    mocked_subtensor_module = mocker.patch.object(
+        coldkey_swap, "SubtensorModule", return_value=mocker.MagicMock()
+    )
+    mocked_pallet_instance = mocked_subtensor_module.return_value
+    mocked_pallet_instance.clear_coldkey_swap_announcement.return_value = (
+        mocker.MagicMock()
+    )
+    mocked_sign_and_send_extrinsic = mocker.patch.object(
+        subtensor,
+        "sign_and_send_extrinsic",
+        return_value=ExtrinsicResponse(True, "Success"),
+    )
+
+    # Call
+    response = coldkey_swap.clear_coldkey_swap_announcement_extrinsic(
+        subtensor=subtensor,
+        wallet=wallet,
+        mev_protection=False,
+    )
+
+    # Asserts
+    mocked_unlock_wallet.assert_called_once_with(wallet, False)
+    mocked_subtensor_module.assert_called_once_with(subtensor)
+    mocked_pallet_instance.clear_coldkey_swap_announcement.assert_called_once_with()
+    mocked_sign_and_send_extrinsic.assert_called_once_with(
+        call=mocked_pallet_instance.clear_coldkey_swap_announcement.return_value,
+        wallet=wallet,
+        wait_for_inclusion=True,
+        wait_for_finalization=True,
+        period=None,
+        raise_error=False,
+    )
+    assert response == mocked_sign_and_send_extrinsic.return_value
+
+
 def test_reset_coldkey_swap_extrinsic(subtensor, mocker):
     """Verify that sync reset_coldkey_swap_extrinsic uses sudo_call_extrinsic."""
     wallet = mocker.MagicMock(spec=Wallet)
@@ -454,6 +506,14 @@ def test_subtensor_module_dispute_reset_swap_coldkey_call_names(subtensor, mocke
     mocked_compose_call.assert_called_with(
         call_module="SubtensorModule",
         call_function="dispute_coldkey_swap",
+        call_params={},
+    )
+
+    mocked_compose_call.reset_mock()
+    pallet.clear_coldkey_swap_announcement()
+    mocked_compose_call.assert_called_with(
+        call_module="SubtensorModule",
+        call_function="clear_coldkey_swap_announcement",
         call_params={},
     )
 
